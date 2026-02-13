@@ -113,14 +113,16 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
 <div id="loginScreen">
   <div class="loginBox">
     <h1>Admin <em style="color:var(--a)">·</em> Puzzle &amp; Form</h1>
-    <p>Enter your GitHub credentials to manage puzzle levels. Changes publish instantly to your live site.</p>
-    <div class="field"><label>GitHub Username</label><input type="text" id="inUser" placeholder="your-username" autocomplete="username"></div>
-    <div class="field"><label>GitHub Personal Access Token</label><input type="password" id="inToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="current-password"></div>
-    <div class="field"><label>Repository (username/repo-name)</label><input type="text" id="inRepo" placeholder="your-username/puzzle-game" autocomplete="off"></div>
-    <div class="field"><label>Admin Password</label><input type="password" id="inPw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
-    <div id="loginErr">Incorrect password or GitHub credentials. Check your token has <strong>repo</strong> scope.</div>
+    <p>Enter your GitHub Personal Access Token and admin password to manage levels.</p>
+    <div class="field">
+      <label>Detected repository</label>
+      <div style="padding:9px 12px;border:1px solid var(--b);border-radius:3px;font-size:13px;background:#faf9f7;color:var(--m)" id="repoDisplay">detecting...</div>
+    </div>
+    <div class="field"><label>GitHub Personal Access Token</label><input type="password" id="inToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="new-password"></div>
+    <div class="field"><label>Admin Password</label><input type="password" id="inPw" placeholder="admin" autocomplete="new-password" onkeydown="if(event.key==='Enter')login()"></div>
+    <div id="loginErr" style="font-size:11px;color:var(--red);display:none">error</div>
     <button class="loginBtn" onclick="login()">Sign in</button>
-    <p style="font-size:10px;color:var(--m)">Your token is stored only in this browser session and never sent anywhere except GitHub's API.</p>
+    <p style="font-size:10px;color:var(--m)">Token stored in browser session only, sent only to GitHub API.</p>
   </div>
 </div>
 
@@ -231,48 +233,68 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
 // ══════════════════════════════════════════════════════════════════
 const ADMIN_PASSWORD = 'admin'; // Change this to your real password
 
+// ── Auto-detect repo from GitHub Pages URL ──────────────────
+// e.g. https://saadelie.github.io/3DBuild/admin.html
+// → repo = saadelie/3DBuild
+function detectRepo(){
+  const host = location.hostname; // saadelie.github.io
+  const path = location.pathname; // /3DBuild/admin.html
+  const parts = path.split('/').filter(Boolean); // ['3DBuild','admin.html']
+  const username = host.split('.')[0]; // saadelie
+  const repoName = parts[0] || '';     // 3DBuild
+  return repoName ? username+'/'+repoName : null;
+}
+
+// Show detected repo in login form
+(function(){
+  const repo = detectRepo();
+  const el = document.getElementById('repoDisplay');
+  if(el) el.textContent = repo || 'Could not detect — are you on GitHub Pages?';
+})();
+
 async function login(){
-  const pw   = document.getElementById('inPw').value;
-  const user = document.getElementById('inUser').value.trim();
-  const tok  = document.getElementById('inToken').value.trim().replace(/\s+/g,''); // strip any spaces/newlines
-  const repo = document.getElementById('inRepo').value.trim();
-  const err  = document.getElementById('loginErr');
-  const btn  = document.querySelector('.loginBtn');
+  const pw  = document.getElementById('inPw').value;
+  const tok = document.getElementById('inToken').value.trim().replace(/\s+/g,'');
+  const err = document.getElementById('loginErr');
+  const btn = document.querySelector('.loginBtn');
+
+  const repo = detectRepo();
 
   if(pw !== ADMIN_PASSWORD){
     err.textContent='Wrong admin password.';err.style.display='block'; return;
   }
-  if(!user||!tok||!repo){
-    err.textContent='Please fill in all fields.';err.style.display='block'; return;
+  if(!tok){
+    err.textContent='Please enter your GitHub token.';err.style.display='block'; return;
+  }
+  if(!repo){
+    err.textContent='Could not detect repo from URL. Are you on GitHub Pages?';err.style.display='block'; return;
   }
 
-  btn.textContent='Checking…';btn.disabled=true;
+  btn.textContent='Checking…';btn.disabled=true;err.style.display='none';
 
-  // Test token against GitHub API before proceeding
+  // Test the token against GitHub API
   try{
-    const r=await fetch(`https://api.github.com/repos/${repo}`,{
+    const r=await fetch('https://api.github.com/repos/'+repo,{
       headers:{'Authorization':'Bearer '+tok,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}
     });
-    if(r.status===401){err.textContent='Token rejected by GitHub — check it has repo scope.';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
-    if(r.status===404){err.textContent='Repo "'+repo+'" not found — check the spelling (username/reponame).';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
-    if(!r.ok){err.textContent='GitHub error '+r.status+' — try again.';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
+    if(r.status===401){err.textContent='Token rejected — make sure it has "repo" scope.';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
+    if(r.status===404){err.textContent='Repo "'+repo+'" not found or token has no access.';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
+    if(!r.ok){err.textContent='GitHub error '+r.status+'. Try again.';err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;}
   }catch(e){
     err.textContent='Network error: '+e.message;err.style.display='block';btn.textContent='Sign in';btn.disabled=false;return;
   }
 
-  // Store in sessionStorage — gone when tab closes
-  sessionStorage.setItem('gh_user', user);
+  // Store credentials — cleared when tab closes
   sessionStorage.setItem('gh_token', tok);
   sessionStorage.setItem('gh_repo', repo);
 
-  err.style.display='none';
   btn.textContent='Sign in';btn.disabled=false;
   document.getElementById('loginScreen').style.display='none';
   document.getElementById('app').style.display='block';
   initApp();
 }
 
-function gh(){ return { user: sessionStorage.getItem('gh_user'), token: sessionStorage.getItem('gh_token'), repo: sessionStorage.getItem('gh_repo') }; }
+function gh(){ return { token: sessionStorage.getItem('gh_token'), repo: sessionStorage.getItem('gh_repo') }; }
 
 // ══════════════════════════════════════════════════════════════════
 // GITHUB API helpers
