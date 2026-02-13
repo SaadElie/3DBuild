@@ -513,9 +513,15 @@ function handleModel(file){
   // Read and show calibration preview
   const reader=new FileReader();
   reader.onload=e=>{
-    const b64=btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+    // Safe base64 encoding for large files (no stack overflow)
+    const u8=new Uint8Array(e.target.result);
+    let b64='';
+    const chunk=8192;
+    for(let i=0;i<u8.length;i+=chunk){
+      b64+=btoa(String.fromCharCode(...u8.subarray(i,i+chunk)));
+    }
     levels[selIdx]._previewB64=b64;
-    showCalibSection(levels[selIdx]);
+    showCalibSection(levels[selIdx], true); // reset sliders for new file
     initPreview(e.target.result);
   };
   reader.readAsArrayBuffer(file);
@@ -531,8 +537,9 @@ function clearModelUI(){
   document.getElementById('calibSection').style.display='none';
 }
 
-function showCalibSection(l){
+function showCalibSection(l, resetSliders){
   document.getElementById('calibSection').style.display='block';
+  if(resetSliders){ l.calibRX=0;l.calibRY=0;l.calibRZ=0; }
   document.getElementById('cRX').value=l.calibRX||0;
   document.getElementById('cRY').value=l.calibRY||0;
   document.getElementById('cRZ').value=l.calibRZ||0;
@@ -634,7 +641,7 @@ function updatePrevOrb(){
   );prevCamera.lookAt(0,0,0);
 }
 
-// ── Minimal GLB loader for preview (no node walk needed here — just visualise) ──
+// ── Full GLB loader with node-tree walk — same as game, gives correct transforms + textures ──
 function loadGLBSimple(buf){
   const v=new DataView(buf);
   if(v.getUint32(0,true)!==0x46546C67) throw new Error('Not GLB');
@@ -646,12 +653,53 @@ function loadGLBSimple(buf){
     off+=cl;
   }
   const g=JSON.parse(jc);
-  const res=[];
-  const imgs=[];
-  if(g.images)for(const im of g.images){if(im.bufferView!=null){const bv=g.bufferViews[im.bufferView];imgs.push(URL.createObjectURL(new Blob([new Uint8Array(bc,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/jpeg'})));}else imgs.push(null);}
-  function getAcc(i){const a=g.accessors[i],bv=g.bufferViews[a.bufferView];const o=(bv.byteOffset||0)+(a.byteOffset||0);const n={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[a.type]||1;const T={5121:Uint8Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array}[a.componentType]||Float32Array;return new T(bc,o,a.count*n);}
-  function texUrl(mi){if(mi==null||!g.materials)return null;const t=g.materials[mi]?.pbrMetallicRoughness?.baseColorTexture?.index;return t!=null?imgs[g.textures[t].source]||null:null;}
-  if(g.meshes)for(const m of g.meshes)for(const p of m.primitives){res.push({pos:getAcc(p.attributes.POSITION),nor:p.attributes.NORMAL!=null?getAcc(p.attributes.NORMAL):null,uv:p.attributes.TEXCOORD_0!=null?getAcc(p.attributes.TEXCOORD_0):null,idx:p.indices!=null?getAcc(p.indices):null,texUrl:texUrl(p.material)});}
+  const res=[],imgs=[];
+  // Extract embedded images as blob URLs
+  if(g.images)for(const im of g.images){
+    if(im.bufferView!=null){const bv=g.bufferViews[im.bufferView];imgs.push(URL.createObjectURL(new Blob([new Uint8Array(bc,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/jpeg'})));}
+    else imgs.push(null);
+  }
+  function getAcc(i){
+    const a=g.accessors[i],bv=g.bufferViews[a.bufferView];
+    const o=(bv.byteOffset||0)+(a.byteOffset||0);
+    const n={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[a.type]||1;
+    const T={5121:Uint8Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array}[a.componentType]||Float32Array;
+    return new T(bc,o,a.count*n);
+  }
+  function texUrl(mi){
+    if(mi==null||!g.materials)return null;
+    const t=g.materials[mi]?.pbrMetallicRoughness?.baseColorTexture?.index;
+    return t!=null?(imgs[g.textures[t]?.source]||null):null;
+  }
+  // Matrix math for node tree walk
+  const I=()=>[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+  const mul=(a,b)=>{const r=new Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[i+k*4]*b[k+j*4];r[i+j*4]=s;}return r;};
+  const trs=n=>{if(n.matrix)return[...n.matrix];const m=I();if(n.translation){m[12]=n.translation[0];m[13]=n.translation[1];m[14]=n.translation[2];}if(n.rotation){const[qx,qy,qz,qw]=n.rotation;m[0]=1-2*(qy*qy+qz*qz);m[1]=2*(qx*qy+qz*qw);m[2]=2*(qx*qz-qy*qw);m[4]=2*(qx*qy-qz*qw);m[5]=1-2*(qx*qx+qz*qz);m[6]=2*(qy*qz+qx*qw);m[8]=2*(qx*qz+qy*qw);m[9]=2*(qy*qz-qx*qw);m[10]=1-2*(qx*qx+qy*qy);}if(n.scale){m[0]*=n.scale[0];m[1]*=n.scale[0];m[2]*=n.scale[0];m[4]*=n.scale[1];m[5]*=n.scale[1];m[6]*=n.scale[1];m[8]*=n.scale[2];m[9]*=n.scale[2];m[10]*=n.scale[2];}return m;};
+  const tp=(m,v)=>{const w=m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]||1;return[(m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12])/w,(m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13])/w,(m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14])/w];};
+  const tn=(m,v)=>{const x=m[0]*v[0]+m[4]*v[1]+m[8]*v[2],y=m[1]*v[0]+m[5]*v[1]+m[9]*v[2],z=m[2]*v[0]+m[6]*v[1]+m[10]*v[2];const l=Math.sqrt(x*x+y*y+z*z)||1;return[x/l,y/l,z/l];};
+  function visit(ni,pm){
+    const n=g.nodes[ni],wm=mul(pm,trs(n));
+    if(n.mesh!=null){
+      for(const p of g.meshes[n.mesh].primitives){
+        const rp=getAcc(p.attributes.POSITION),rn=p.attributes.NORMAL!=null?getAcc(p.attributes.NORMAL):null;
+        const uv=p.attributes.TEXCOORD_0!=null?getAcc(p.attributes.TEXCOORD_0):null,ix=p.indices!=null?getAcc(p.indices):null;
+        const vc=rp.length/3,pos=new Float32Array(rp.length),nor=rn?new Float32Array(rn.length):null;
+        for(let i=0;i<vc;i++){
+          const pp=tp(wm,[rp[i*3],rp[i*3+1],rp[i*3+2]]);pos[i*3]=pp[0];pos[i*3+1]=pp[1];pos[i*3+2]=pp[2];
+          if(rn){const nn=tn(wm,[rn[i*3],rn[i*3+1],rn[i*3+2]]);nor[i*3]=nn[0];nor[i*3+1]=nn[1];nor[i*3+2]=nn[2];}
+        }
+        res.push({pos,nor,uv,idx:ix,texUrl:texUrl(p.material)});
+      }
+    }
+    if(n.children)n.children.forEach(ci=>visit(ci,wm));
+  }
+  const si=g.scene??0;
+  const roots=g.scenes?.[si]?.nodes??g.nodes?.map((_,i)=>i)??[];
+  roots.forEach(i=>visit(i,I()));
+  // Fallback: if node walk found nothing, iterate meshes directly
+  if(!res.length&&g.meshes)for(const m of g.meshes)for(const p of m.primitives){
+    res.push({pos:getAcc(p.attributes.POSITION),nor:p.attributes.NORMAL!=null?getAcc(p.attributes.NORMAL):null,uv:p.attributes.TEXCOORD_0!=null?getAcc(p.attributes.TEXCOORD_0):null,idx:p.indices!=null?getAcc(p.indices):null,texUrl:texUrl(p.material)});
+  }
   return res;
 }
 function primsToPreviewMesh(prims){
