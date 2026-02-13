@@ -332,11 +332,10 @@ async function ghPut(path, content, message){
   if(!commitR.ok) throw new Error('Could not get commit: '+commitR.status);
   const baseTreeSha=(await commitR.json()).tree.sha;
 
-  // 2. Create a blob with the file content (base64)
-  const b64=btoa(unescape(encodeURIComponent(content)));
+  // 2. Create a blob — send as utf-8 (avoids double-base64 corruption)
   const blobR=await fetch(`${api}/git/blobs`,{
     method:'POST',headers:H,
-    body:JSON.stringify({content:b64,encoding:'base64'})
+    body:JSON.stringify({content:content,encoding:'utf-8'})
   });
   if(!blobR.ok) throw new Error('Could not create blob: '+blobR.status);
   const blobSha=(await blobR.json()).sha;
