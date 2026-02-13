@@ -316,19 +316,54 @@ async function ghGet(path){
   if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'GET failed '+r.status);}
   return r.json();
 }
-async function ghPut(path, content, message, sha){
+// ghPut — uses Git Data API (blobs+trees+commits) — no 1MB limit
+async function ghPut(path, content, message){
   const {repo}=gh();
-  // Encode UTF-8 string to base64 safely
-  const b64=btoa(encodeURIComponent(content).replace(/%([0-9A-F]{2})/g,(_,p)=>String.fromCharCode('0x'+p)));
-  const body={message, content: b64};
-  if(sha) body.sha=sha;
-  const r=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{
-    method:'PUT',
-    headers:{...ghHeaders(),'Content-Type':'application/json'},
-    body:JSON.stringify(body)
+  const H={...ghHeaders(),'Content-Type':'application/json'};
+  const api=`https://api.github.com/repos/${repo}`;
+
+  // 1. Get current HEAD commit SHA + tree SHA
+  const refR=await fetch(`${api}/git/ref/heads/main`,{headers:H});
+  if(!refR.ok) throw new Error('Could not get branch ref: '+refR.status);
+  const ref=await refR.json();
+  const headSha=ref.object.sha;
+
+  const commitR=await fetch(`${api}/git/commits/${headSha}`,{headers:H});
+  if(!commitR.ok) throw new Error('Could not get commit: '+commitR.status);
+  const baseTreeSha=(await commitR.json()).tree.sha;
+
+  // 2. Create a blob with the file content (base64)
+  const b64=btoa(unescape(encodeURIComponent(content)));
+  const blobR=await fetch(`${api}/git/blobs`,{
+    method:'POST',headers:H,
+    body:JSON.stringify({content:b64,encoding:'base64'})
   });
-  if(!r.ok){const e=await r.json().catch(()=>({}));throw new Error(e.message||'PUT failed '+r.status);}
-  return r.json();
+  if(!blobR.ok) throw new Error('Could not create blob: '+blobR.status);
+  const blobSha=(await blobR.json()).sha;
+
+  // 3. Create a new tree pointing to the new blob
+  const treeR=await fetch(`${api}/git/trees`,{
+    method:'POST',headers:H,
+    body:JSON.stringify({base_tree:baseTreeSha,tree:[{path,mode:'100644',type:'blob',sha:blobSha}]})
+  });
+  if(!treeR.ok) throw new Error('Could not create tree: '+treeR.status);
+  const newTreeSha=(await treeR.json()).sha;
+
+  // 4. Create a commit
+  const newCommitR=await fetch(`${api}/git/commits`,{
+    method:'POST',headers:H,
+    body:JSON.stringify({message,tree:newTreeSha,parents:[headSha]})
+  });
+  if(!newCommitR.ok) throw new Error('Could not create commit: '+newCommitR.status);
+  const newCommitSha=(await newCommitR.json()).sha;
+
+  // 5. Update the branch reference
+  const updateR=await fetch(`${api}/git/refs/heads/main`,{
+    method:'PATCH',headers:H,
+    body:JSON.stringify({sha:newCommitSha})
+  });
+  if(!updateR.ok) throw new Error('Could not update ref: '+updateR.status);
+  return updateR.json();
 }
 
 // ══════════════════════════════════════════════════════════════════
@@ -677,6 +712,16 @@ function clearSkyUI(){
 // PUBLISH — encode to base64 and commit levels.json via GitHub API
 // ══════════════════════════════════════════════════════════════════
 async function publish(){
+  // Check total size — warn if over 50MB (GitHub Pages limit is 100MB per repo)
+  const totalBytes=levels.reduce((s,l)=>{
+    const m=l.modelData?l.modelData.length*.75:l.modelFile?l.modelFile.size:0;
+    const sk=l.skyData?l.skyData.length*.75:l.skyFile?l.skyFile.size:0;
+    return s+m+sk;
+  },0);
+  if(totalBytes>50*1024*1024){
+    if(!confirm('Warning: total data is '+Math.round(totalBytes/1024/1024)+'MB. Large files may be slow to load for players. Continue?')) return;
+  }
+
   showProgress('Reading files…', 5);
   document.getElementById('publishBtn').disabled=true;
 
@@ -686,14 +731,16 @@ async function publish(){
 
   for(const lvl of levels){
     if(lvl.modelFile){
+      showProgress('Encoding model: '+lvl.name+'…', Math.round(done/total*50));
       lvl.modelData=await fileToBase64(lvl.modelFile);
       lvl.modelFile=null;
-      done++;showProgress('Encoding model…',Math.round(done/total*50));
+      done++;
     }
     if(lvl.skyFile){
+      showProgress('Encoding panorama: '+lvl.name+'…', Math.round(done/total*50));
       lvl.skyData=await fileToBase64(lvl.skyFile);
       lvl.skyFile=null;
-      done++;showProgress('Encoding panorama…',Math.round(done/total*50));
+      done++;
     }
   }
 
