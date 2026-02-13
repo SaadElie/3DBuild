@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin · Puzzle &amp; Form</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap');
+:root{--bg:#f5f3ef;--s:#fff;--b:#e2ddd8;--t:#1a1814;--m:#9a9690;--a:#c8a96e;--green:#3d8c6f;--red:#c0392b}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost',sans-serif;font-weight:300}
+
+/* ── LOGIN SCREEN ── */
+#loginScreen{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:var(--bg);z-index:999}
+.loginBox{background:var(--s);border:1px solid var(--b);border-radius:6px;padding:48px;width:360px;display:flex;flex-direction:column;gap:18px;box-shadow:0 2px 20px rgba(0,0,0,.06)}
+.loginBox h1{font-family:'Cormorant Garamond',serif;font-size:22px;font-weight:400}
+.loginBox p{font-size:12px;color:var(--m);line-height:1.6}
+.field{display:flex;flex-direction:column;gap:6px}
+.field label{font-size:11px;color:var(--m)}
+.field input{padding:10px 12px;border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:13px;background:var(--bg);outline:none;transition:border-color .2s}
+.field input:focus{border-color:var(--a)}
+.loginBtn{padding:11px;background:var(--a);color:#fff;border:none;border-radius:3px;font-family:'Jost',sans-serif;font-size:12px;letter-spacing:.06em;cursor:pointer;transition:opacity .2s}
+.loginBtn:hover{opacity:.88}
+#loginErr{font-size:11px;color:var(--red);display:none}
+
+/* ── APP ── */
+#app{display:none}
+#topbar{height:54px;background:var(--s);border-bottom:1px solid var(--b);display:flex;align-items:center;padding:0 28px;gap:16px;position:sticky;top:0;z-index:10}
+.logo{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400}.logo em{color:var(--a);font-style:italic}
+.tag{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--m);background:var(--bg);border:1px solid var(--b);padding:2px 8px;border-radius:2px}
+.spacer{flex:1}
+#statusMsg{font-size:11px;color:var(--m)}
+.publishBtn{background:var(--green);color:#fff;border:none;border-radius:3px;padding:9px 22px;font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.07em;cursor:pointer;transition:opacity .2s;display:flex;align-items:center;gap:8px}
+.publishBtn:hover{opacity:.85}
+.publishBtn:disabled{opacity:.5;cursor:not-allowed}
+
+/* ── LAYOUT ── */
+#main{display:flex;min-height:calc(100vh - 54px)}
+
+/* ── SIDEBAR ── */
+#sidebar{width:280px;flex-shrink:0;background:var(--s);border-right:1px solid var(--b);display:flex;flex-direction:column}
+.shead{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--m);padding:16px 20px 12px;border-bottom:1px solid var(--b)}
+#lvList{flex:1;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:4px}
+.lvItem{display:flex;align-items:center;gap:8px;padding:9px 10px;border-radius:4px;cursor:pointer;border:1px solid transparent;transition:all .15s;user-select:none}
+.lvItem:hover{background:#faf9f7}.lvItem.active{border-color:var(--a);background:#faf9f7}
+.lvNum{width:22px;height:22px;border-radius:3px;background:var(--bg);border:1px solid var(--b);display:flex;align-items:center;justify-content:center;font-size:10px;color:var(--m);flex-shrink:0}
+.lvItem.active .lvNum{background:var(--a);border-color:var(--a);color:#fff}
+.lvTitle{font-size:12px;font-weight:400;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lvMeta{font-size:10px;color:var(--m)}
+.drag-handle{cursor:grab;color:var(--b);font-size:14px;line-height:1;flex-shrink:0}
+.drag-handle:active{cursor:grabbing}
+.lvItem.drag-over{border-color:var(--a);background:#fdf8f0}
+#addBtn{margin:12px;padding:10px;border:1px dashed var(--b);border-radius:4px;background:transparent;color:var(--m);font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.05em;cursor:pointer;transition:all .2s}
+#addBtn:hover{border-color:var(--a);color:var(--a)}
+
+/* ── EDITOR ── */
+#editor{flex:1;padding:36px 40px;overflow-y:auto}
+#noSel{display:flex;flex-direction:column;align-items:center;justify-content:center;height:300px;gap:12px;color:var(--m)}
+#noSel .ni{font-size:36px;opacity:.12}
+.card{background:var(--s);border:1px solid var(--b);border-radius:6px;padding:28px;margin-bottom:20px;max-width:620px}
+.cardHead{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--m);padding-bottom:14px;border-bottom:1px solid var(--b);margin-bottom:22px}
+.row{display:flex;flex-direction:column;gap:6px;margin-bottom:18px}
+.row label{font-size:11px;color:var(--m)}
+.row input[type=text]{width:100%;padding:9px 12px;border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:13px;background:var(--bg);outline:none;transition:border-color .2s}
+.row input[type=text]:focus{border-color:var(--a)}
+.sliderRow{display:flex;align-items:center;gap:12px}
+.sliderRow input[type=range]{flex:1;accent-color:var(--a);cursor:pointer}
+.sliderVal{font-size:14px;font-weight:400;min-width:28px}
+
+/* Upload zones */
+.uzone{border:1px dashed var(--b);border-radius:4px;padding:26px;text-align:center;cursor:pointer;transition:all .2s;position:relative}
+.uzone:hover,.uzone.over{border-color:var(--a);background:rgba(200,169,110,.04)}
+.uzone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.uzIcon{font-size:22px;opacity:.22;margin-bottom:8px}
+.uzLabel{font-size:11px;color:var(--m);letter-spacing:.05em}
+.uzSub{font-size:10px;color:var(--b);margin-top:4px}
+.fileInfo{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--bg);border-radius:3px;margin-top:10px}
+.fileInfo .fn{font-size:12px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fileInfo .fs{font-size:10px;color:var(--m)}
+.fileInfo .fx{background:none;border:none;color:var(--m);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:2px}
+.fileInfo .fx:hover{color:var(--red)}
+.skyThumb{width:100%;max-height:80px;object-fit:cover;border-radius:3px;margin-top:10px;display:none}
+
+/* Calibration */
+.calibRow{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.calibRow label{font-size:11px;color:var(--m);width:90px;flex-shrink:0}
+.calibRow input[type=range]{flex:1;accent-color:var(--a)}
+.calibRow .cv{font-size:11px;color:var(--t);min-width:40px;text-align:right}
+.preview3d{width:100%;height:220px;border-radius:4px;overflow:hidden;background:#1a1814;position:relative;margin-top:4px}
+.preview3d canvas{width:100%;height:100%;display:block}
+.previewHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.08em;pointer-events:none}
+
+/* Danger */
+.dangerBtn{background:none;border:1px solid #e8c4c4;color:var(--red);border-radius:3px;padding:8px 16px;font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.05em;cursor:pointer;transition:all .2s}
+.dangerBtn:hover{background:var(--red);color:#fff;border-color:var(--red)}
+
+/* Progress overlay */
+#progressOverlay{display:none;position:fixed;inset:0;background:rgba(245,243,239,.88);z-index:200;align-items:center;justify-content:center;flex-direction:column;gap:16px}
+#progressOverlay.show{display:flex}
+.progBox{background:var(--s);border:1px solid var(--b);border-radius:6px;padding:28px 36px;min-width:300px;text-align:center}
+.progLabel{font-size:13px;margin-bottom:14px;color:var(--t)}
+.progBar{height:3px;background:var(--b);border-radius:2px;overflow:hidden}
+.progFill{height:100%;background:var(--green);border-radius:2px;transition:width .4s;width:0%}
+
+/* Toast */
+#toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(12px);background:#1a1814;color:#fff;padding:10px 20px;border-radius:4px;font-size:12px;opacity:0;transition:all .3s;pointer-events:none;z-index:300}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+</style>
+</head>
+<body>
+
+<!-- ── LOGIN ── -->
+<div id="loginScreen">
+  <div class="loginBox">
+    <h1>Admin <em style="color:var(--a)">·</em> Puzzle &amp; Form</h1>
+    <p>Enter your GitHub credentials to manage puzzle levels. Changes publish instantly to your live site.</p>
+    <div class="field"><label>GitHub Username</label><input type="text" id="inUser" placeholder="your-username" autocomplete="username"></div>
+    <div class="field"><label>GitHub Personal Access Token</label><input type="password" id="inToken" placeholder="ghp_xxxxxxxxxxxx" autocomplete="current-password"></div>
+    <div class="field"><label>Repository (username/repo-name)</label><input type="text" id="inRepo" placeholder="your-username/puzzle-game" autocomplete="off"></div>
+    <div class="field"><label>Admin Password</label><input type="password" id="inPw" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')login()"></div>
+    <div id="loginErr">Incorrect password or GitHub credentials. Check your token has <strong>repo</strong> scope.</div>
+    <button class="loginBtn" onclick="login()">Sign in</button>
+    <p style="font-size:10px;color:var(--m)">Your token is stored only in this browser session and never sent anywhere except GitHub's API.</p>
+  </div>
+</div>
+
+<!-- ── APP ── -->
+<div id="app">
+  <div id="topbar">
+    <div class="logo">Puzzle <em>&amp;</em> Form <span class="tag">Admin</span></div>
+    <div class="spacer"></div>
+    <div id="statusMsg"></div>
+    <button class="publishBtn" id="publishBtn" onclick="publish()" disabled>
+      <span id="publishLabel">Publish</span>
+    </button>
+  </div>
+  <div id="main">
+    <div id="sidebar">
+      <div class="shead">Levels</div>
+      <div id="lvList"></div>
+      <button id="addBtn" onclick="addLevel()">+ Add Level</button>
+    </div>
+    <div id="editor">
+      <div id="noSel"><div class="ni">◇</div><p style="font-size:12px">Select a level to edit</p></div>
+      <div id="lvEditor" style="display:none">
+
+        <!-- Info -->
+        <div class="card">
+          <div class="cardHead">Level Info</div>
+          <div class="row"><label>Level Name</label><input type="text" id="eName" oninput="syncField('name',this.value)"></div>
+          <div class="row"><label>Number of Pieces</label>
+            <div class="sliderRow">
+              <input type="range" id="ePieces" min="3" max="40" value="15" oninput="document.getElementById('ePiecesVal').textContent=this.value;syncField('pieces',+this.value)">
+              <div class="sliderVal" id="ePiecesVal">15</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3D Model + Calibration -->
+        <div class="card">
+          <div class="cardHead">3D Model</div>
+          <div class="uzone" id="modelZone">
+            <input type="file" id="modelInput" accept=".glb,.obj" onchange="handleModel(this.files[0])">
+            <div class="uzIcon">⬡</div>
+            <div class="uzLabel">Click or drag a .glb or .obj file</div>
+            <div class="uzSub">.glb recommended — preserves textures</div>
+          </div>
+          <div class="fileInfo" id="modelInfo" style="display:none">
+            <span class="fn" id="modelFn"></span>
+            <span class="fs" id="modelFs"></span>
+            <button class="fx" onclick="clearModel()">✕</button>
+          </div>
+
+          <!-- 3D preview + calibration sliders — shown after model loaded -->
+          <div id="calibSection" style="display:none;margin-top:18px">
+            <div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--m);margin-bottom:14px;padding-top:14px;border-top:1px solid var(--b)">Calibration</div>
+            <div class="calibRow"><label>Rotate X</label><input type="range" id="cRX" min="-180" max="180" value="0" oninput="updateCalib()"><span class="cv" id="cRXv">0°</span></div>
+            <div class="calibRow"><label>Rotate Y</label><input type="range" id="cRY" min="-180" max="180" value="0" oninput="updateCalib()"><span class="cv" id="cRYv">0°</span></div>
+            <div class="calibRow"><label>Rotate Z</label><input type="range" id="cRZ" min="-180" max="180" value="0" oninput="updateCalib()"><span class="cv" id="cRZv">0°</span></div>
+            <div class="preview3d" id="previewContainer">
+              <canvas id="previewCanvas"></canvas>
+              <div class="previewHint">Right drag to orbit</div>
+            </div>
+            <button onclick="resetCalib()" style="margin-top:10px;background:none;border:1px solid var(--b);color:var(--m);font-family:'Jost',sans-serif;font-size:10px;padding:6px 14px;border-radius:3px;cursor:pointer;letter-spacing:.05em">Reset rotation</button>
+          </div>
+        </div>
+
+        <!-- 360° Sky -->
+        <div class="card">
+          <div class="cardHead">360° Panorama <span style="font-weight:300;text-transform:none;letter-spacing:0;font-size:10px;color:var(--m)">(optional)</span></div>
+          <div class="uzone" id="skyZone">
+            <input type="file" id="skyInput" accept="image/*" onchange="handleSky(this.files[0])">
+            <div class="uzIcon">◉</div>
+            <div class="uzLabel">Click or drag an equirectangular panorama</div>
+            <div class="uzSub">.jpg 4096×2048 · 2:1 ratio</div>
+          </div>
+          <div class="fileInfo" id="skyInfo" style="display:none">
+            <span class="fn" id="skyFn"></span>
+            <span class="fs" id="skyFs"></span>
+            <button class="fx" onclick="clearSky()">✕</button>
+          </div>
+          <img id="skyThumb" class="skyThumb">
+        </div>
+
+        <!-- Danger -->
+        <div class="card">
+          <div class="cardHead">Danger Zone</div>
+          <button class="dangerBtn" onclick="deleteLevel()">Delete This Level</button>
+        </div>
+
+      </div><!-- /lvEditor -->
+    </div><!-- /editor -->
+  </div>
+</div>
+
+<!-- Progress overlay -->
+<div id="progressOverlay">
+  <div class="progBox">
+    <div class="progLabel" id="progLabel">Publishing…</div>
+    <div class="progBar"><div class="progFill" id="progFill"></div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════════
+// AUTH  — simple password + GitHub token check
+// ══════════════════════════════════════════════════════════════════
+const ADMIN_PASSWORD = 'admin'; // Change this to your real password
+
+function login(){
+  const pw   = document.getElementById('inPw').value;
+  const user = document.getElementById('inUser').value.trim();
+  const tok  = document.getElementById('inToken').value.trim();
+  const repo = document.getElementById('inRepo').value.trim();
+  const err  = document.getElementById('loginErr');
+
+  if(pw !== ADMIN_PASSWORD){ err.style.display='block'; return; }
+  if(!user||!tok||!repo)   { err.style.display='block'; return; }
+
+  // Store in sessionStorage — gone when tab closes
+  sessionStorage.setItem('gh_user', user);
+  sessionStorage.setItem('gh_token', tok);
+  sessionStorage.setItem('gh_repo', repo);
+
+  err.style.display='none';
+  document.getElementById('loginScreen').style.display='none';
+  document.getElementById('app').style.display='block';
+  initApp();
+}
+
+function gh(){ return { user: sessionStorage.getItem('gh_user'), token: sessionStorage.getItem('gh_token'), repo: sessionStorage.getItem('gh_repo') }; }
+
+// ══════════════════════════════════════════════════════════════════
+// GITHUB API helpers
+// ══════════════════════════════════════════════════════════════════
+async function ghGet(path){
+  const {token,repo}=gh();
+  const r=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,
+    {headers:{'Authorization':'token '+token,'Accept':'application/vnd.github.v3+json'}});
+  if(!r.ok) throw new Error('GET '+path+' → '+r.status);
+  return r.json();
+}
+async function ghPut(path, content, message, sha){
+  const {token,repo}=gh();
+  const body={message, content: btoa(unescape(encodeURIComponent(content)))};
+  if(sha) body.sha=sha;
+  const r=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{
+    method:'PUT',
+    headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.message||'PUT failed');}
+  return r.json();
+}
+async function ghPutBinary(path, base64Content, message, sha){
+  const {token,repo}=gh();
+  const body={message, content: base64Content};
+  if(sha) body.sha=sha;
+  const r=await fetch(`https://api.github.com/repos/${repo}/contents/${path}`,{
+    method:'PUT',
+    headers:{'Authorization':'token '+token,'Content-Type':'application/json','Accept':'application/vnd.github.v3+json'},
+    body:JSON.stringify(body)
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.message||'PUT binary failed');}
+  return r.json();
+}
+
+// ══════════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════════
+let levels=[];   // [{name,pieces,modelFile,modelData(b64),skyFile,skyData(b64),skyMime,calibRX,calibRY,calibRZ}]
+let selIdx=-1;
+let dirty=false;
+
+function markDirty(){ dirty=true; document.getElementById('statusMsg').textContent='Unsaved changes'; document.getElementById('publishBtn').disabled=false; }
+function clearDirty(){ dirty=false; document.getElementById('statusMsg').textContent=''; }
+
+// ══════════════════════════════════════════════════════════════════
+// INIT — load existing levels.json from repo
+// ══════════════════════════════════════════════════════════════════
+async function initApp(){
+  toast('Loading existing levels…');
+  try{
+    const file=await ghGet('levels.json');
+    const text=decodeURIComponent(escape(atob(file.content.replace(/\n/g,''))));
+    const data=JSON.parse(text);
+    levels=data.map(r=>({
+      id:r.id||crypto.randomUUID(),
+      name:r.name||'Unnamed',
+      pieces:r.pieces||15,
+      modelData:r.model_data||null,  // base64 stored
+      modelFn:r.model_fn||null,
+      skyData:r.sky_data||null,
+      skyMime:r.sky_mime||'image/jpeg',
+      skyFn:r.sky_fn||null,
+      calibRX:r.calib_rx||0,
+      calibRY:r.calib_ry||0,
+      calibRZ:r.calib_rz||0,
+      modelFile:null, skyFile:null   // new local files not yet committed
+    }));
+    toast('Loaded '+levels.length+' level(s)');
+  }catch(e){
+    if(e.message.includes('404')||e.message.includes('GET levels')){
+      toast('No levels yet — create your first one!');
+    } else {
+      toast('Could not load: '+e.message);
+    }
+  }
+  renderList();
+  if(levels.length) selectLevel(0);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// LEVEL LIST UI
+// ══════════════════════════════════════════════════════════════════
+let dragSrc=-1;
+function renderList(){
+  const el=document.getElementById('lvList');
+  if(!levels.length){el.innerHTML='<div style="font-size:11px;color:var(--m);padding:10px">No levels yet</div>';return;}
+  el.innerHTML=levels.map((l,i)=>`
+    <div class="lvItem${i===selIdx?' active':''}" onclick="selectLevel(${i})"
+      draggable="true"
+      ondragstart="dragSrc=${i};this.style.opacity='.4'"
+      ondragend="this.style.opacity='1'"
+      ondragover="event.preventDefault();document.querySelectorAll('.lvItem').forEach(e=>e.classList.remove('drag-over'));this.classList.add('drag-over')"
+      ondragleave="this.classList.remove('drag-over')"
+      ondrop="event.preventDefault();this.classList.remove('drag-over');moveLevel(dragSrc,${i})">
+      <span class="drag-handle">⠿</span>
+      <div class="lvNum">${i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div class="lvTitle">${l.name}</div>
+        <div class="lvMeta">${l.pieces} pcs${l.modelData||l.modelFile?' · ⬡':''} ${l.skyData||l.skyFile?' · 360°':''}</div>
+      </div>
+    </div>`).join('');
+}
+
+function selectLevel(i){
+  selIdx=i;
+  renderList();
+  const l=levels[i];
+  document.getElementById('noSel').style.display='none';
+  document.getElementById('lvEditor').style.display='block';
+  document.getElementById('eName').value=l.name;
+  document.getElementById('ePieces').value=l.pieces;
+  document.getElementById('ePiecesVal').textContent=l.pieces;
+  // model
+  if(l.modelData||l.modelFile){
+    document.getElementById('modelInfo').style.display='flex';
+    document.getElementById('modelFn').textContent=l.modelFn||'model.glb';
+    document.getElementById('modelFs').textContent=l.modelData?fmtB(l.modelData.length*.75):'new file';
+    showCalibSection(l);
+  } else { clearModelUI(); }
+  // sky
+  if(l.skyData||l.skyFile){
+    document.getElementById('skyInfo').style.display='flex';
+    document.getElementById('skyFn').textContent=l.skyFn||'panorama.jpg';
+    document.getElementById('skyFs').textContent=l.skyData?fmtB(l.skyData.length*.75):'new file';
+    if(l.skyFile){ const t=document.getElementById('skyThumb');t.src=URL.createObjectURL(l.skyFile);t.style.display='block'; }
+    else if(l.skyData){
+      const t=document.getElementById('skyThumb');
+      t.src='data:'+l.skyMime+';base64,'+l.skyData.slice(0,200)+'…';
+      // Use blob for proper preview
+      const bin=atob(l.skyData);const u8=new Uint8Array(bin.length);for(let j=0;j<bin.length;j++)u8[j]=bin.charCodeAt(j);
+      t.src=URL.createObjectURL(new Blob([u8],{type:l.skyMime}));t.style.display='block';
+    }
+  } else { clearSkyUI(); }
+  // calibration values
+  document.getElementById('cRX').value=l.calibRX||0;
+  document.getElementById('cRY').value=l.calibRY||0;
+  document.getElementById('cRZ').value=l.calibRZ||0;
+  updateCalibLabels();
+}
+
+function syncField(field,val){
+  if(selIdx<0)return;
+  levels[selIdx][field]=val;
+  markDirty();
+  if(field==='name'||field==='pieces') renderList();
+}
+
+function addLevel(){
+  levels.push({id:crypto.randomUUID(),name:'New Level',pieces:15,modelData:null,modelFn:null,skyData:null,skyMime:'image/jpeg',skyFn:null,calibRX:0,calibRY:0,calibRZ:0,modelFile:null,skyFile:null});
+  markDirty();renderList();selectLevel(levels.length-1);
+}
+
+function deleteLevel(){
+  if(selIdx<0)return;
+  if(!confirm('Delete "'+levels[selIdx].name+'"?'))return;
+  levels.splice(selIdx,1);
+  selIdx=Math.max(0,selIdx-1);
+  markDirty();renderList();
+  if(levels.length) selectLevel(selIdx);
+  else{ document.getElementById('noSel').style.display='flex';document.getElementById('lvEditor').style.display='none'; }
+}
+
+function moveLevel(from,to){
+  if(from===to||from<0||to<0)return;
+  const [m]=levels.splice(from,1);levels.splice(to,0,m);
+  selIdx=to;markDirty();renderList();selectLevel(to);
+}
+
+// ══════════════════════════════════════════════════════════════════
+// MODEL UPLOAD + CALIBRATION
+// ══════════════════════════════════════════════════════════════════
+function handleModel(file){
+  if(!file||selIdx<0)return;
+  levels[selIdx].modelFile=file;
+  levels[selIdx].modelFn=file.name;
+  levels[selIdx].modelData=null; // will be set on publish
+  document.getElementById('modelInfo').style.display='flex';
+  document.getElementById('modelFn').textContent=file.name;
+  document.getElementById('modelFs').textContent=fmtB(file.size);
+  // Read and show calibration preview
+  const reader=new FileReader();
+  reader.onload=e=>{
+    const b64=btoa(String.fromCharCode(...new Uint8Array(e.target.result)));
+    levels[selIdx]._previewB64=b64;
+    showCalibSection(levels[selIdx]);
+    initPreview(e.target.result);
+  };
+  reader.readAsArrayBuffer(file);
+  markDirty();
+}
+function clearModel(){
+  if(selIdx<0)return;
+  levels[selIdx].modelFile=null;levels[selIdx].modelData=null;levels[selIdx].modelFn=null;
+  clearModelUI();markDirty();
+}
+function clearModelUI(){
+  document.getElementById('modelInfo').style.display='none';
+  document.getElementById('calibSection').style.display='none';
+}
+
+function showCalibSection(l){
+  document.getElementById('calibSection').style.display='block';
+  document.getElementById('cRX').value=l.calibRX||0;
+  document.getElementById('cRY').value=l.calibRY||0;
+  document.getElementById('cRZ').value=l.calibRZ||0;
+  updateCalibLabels();
+  // Init preview with stored data if available
+  if(l._previewB64||l.modelData){
+    const b64=l._previewB64||l.modelData;
+    const bin=atob(b64);const u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    initPreview(u8.buffer);
+  }
+}
+
+function updateCalib(){
+  updateCalibLabels();
+  if(selIdx<0)return;
+  levels[selIdx].calibRX=+document.getElementById('cRX').value;
+  levels[selIdx].calibRY=+document.getElementById('cRY').value;
+  levels[selIdx].calibRZ=+document.getElementById('cRZ').value;
+  if(previewModel) applyCalib();
+  markDirty();
+}
+function updateCalibLabels(){
+  ['RX','RY','RZ'].forEach(a=>{document.getElementById('c'+a+'v').textContent=document.getElementById('c'+a).value+'°';});
+}
+function resetCalib(){
+  ['cRX','cRY','cRZ'].forEach(id=>{document.getElementById(id).value=0;});
+  updateCalib();
+}
+
+// ── Inline preview renderer ────────────────────────────────────
+let prevRenderer=null, prevScene=null, prevCamera=null, previewModel=null;
+let prevOrb={r:4,th:.4,ph:.7,on:false,lx:0,ly:0};
+
+function initPreview(arrayBuffer){
+  const container=document.getElementById('previewContainer');
+  const canvas=document.getElementById('previewCanvas');
+
+  if(!prevRenderer){
+    prevRenderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+    prevRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
+    prevRenderer.setClearColor(0x1a1814,1);
+    prevRenderer.shadowMap.enabled=true;
+    prevScene=new THREE.Scene();
+    prevCamera=new THREE.PerspectiveCamera(46,container.clientWidth/container.clientHeight,.01,100);
+    prevScene.add(new THREE.AmbientLight(0xffffff,.7));
+    const sl=new THREE.DirectionalLight(0xfff8e8,1.1);sl.position.set(4,8,5);prevScene.add(sl);
+    // Resize
+    const obs=new ResizeObserver(()=>{
+      const w=container.clientWidth,h=container.clientHeight;
+      prevRenderer.setSize(w,h,false);prevCamera.aspect=w/h;prevCamera.updateProjectionMatrix();
+    });obs.observe(container);
+    prevRenderer.setSize(container.clientWidth,container.clientHeight,false);
+    // Orbit
+    canvas.addEventListener('mousedown',e=>{if(e.button===0||e.button===2){prevOrb.on=true;prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;}e.stopPropagation();});
+    window.addEventListener('mousemove',e=>{
+      if(!prevOrb.on)return;
+      prevOrb.th-=(e.clientX-prevOrb.lx)*.005;prevOrb.ph-=(e.clientY-prevOrb.ly)*.005;
+      prevOrb.ph=Math.max(.05,Math.min(1.5,prevOrb.ph));
+      prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;
+      updatePrevOrb();
+    });
+    window.addEventListener('mouseup',()=>prevOrb.on=false);
+    canvas.addEventListener('wheel',e=>{prevOrb.r=Math.max(.5,Math.min(20,prevOrb.r*(1+e.deltaY*.001)));updatePrevOrb();e.stopPropagation();e.preventDefault();},{passive:false});
+    // Render loop
+    (function loop(){requestAnimationFrame(loop);if(prevRenderer)prevRenderer.render(prevScene,prevCamera);})();
+  }
+
+  // Remove old model
+  if(previewModel){prevScene.remove(previewModel);previewModel=null;}
+
+  // Parse GLB
+  try{
+    const prims=loadGLBSimple(arrayBuffer);
+    const group=primsToPreviewMesh(prims);
+    prevScene.add(group);previewModel=group;
+    applyCalib();
+    // Auto-fit camera
+    const box=new THREE.Box3().setFromObject(group);
+    const size=box.getSize(new THREE.Vector3()).length();
+    prevOrb.r=size*1.4;updatePrevOrb();
+  }catch(e){console.error('preview GLB error',e);}
+}
+
+function applyCalib(){
+  if(!previewModel||selIdx<0)return;
+  const l=levels[selIdx];
+  previewModel.rotation.set(
+    (l.calibRX||0)*Math.PI/180,
+    (l.calibRY||0)*Math.PI/180,
+    (l.calibRZ||0)*Math.PI/180
+  );
+}
+function updatePrevOrb(){
+  if(!prevCamera)return;
+  prevCamera.position.set(
+    prevOrb.r*Math.sin(prevOrb.ph)*Math.sin(prevOrb.th),
+    prevOrb.r*Math.cos(prevOrb.ph),
+    prevOrb.r*Math.sin(prevOrb.ph)*Math.cos(prevOrb.th)
+  );prevCamera.lookAt(0,0,0);
+}
+
+// ── Minimal GLB loader for preview (no node walk needed here — just visualise) ──
+function loadGLBSimple(buf){
+  const v=new DataView(buf);
+  if(v.getUint32(0,true)!==0x46546C67) throw new Error('Not GLB');
+  let off=12,jc=null,bc=null;
+  while(off<buf.byteLength){
+    const cl=v.getUint32(off,true),ct=v.getUint32(off+4,true);off+=8;
+    if(ct===0x4E4F534A)jc=new TextDecoder().decode(new Uint8Array(buf,off,cl));
+    else if(ct===0x004E4942)bc=buf.slice(off,off+cl);
+    off+=cl;
+  }
+  const g=JSON.parse(jc);
+  const res=[];
+  const imgs=[];
+  if(g.images)for(const im of g.images){if(im.bufferView!=null){const bv=g.bufferViews[im.bufferView];imgs.push(URL.createObjectURL(new Blob([new Uint8Array(bc,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/jpeg'})));}else imgs.push(null);}
+  function getAcc(i){const a=g.accessors[i],bv=g.bufferViews[a.bufferView];const o=(bv.byteOffset||0)+(a.byteOffset||0);const n={SCALAR:1,VEC2:2,VEC3:3,VEC4:4}[a.type]||1;const T={5121:Uint8Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array}[a.componentType]||Float32Array;return new T(bc,o,a.count*n);}
+  function texUrl(mi){if(mi==null||!g.materials)return null;const t=g.materials[mi]?.pbrMetallicRoughness?.baseColorTexture?.index;return t!=null?imgs[g.textures[t].source]||null:null;}
+  if(g.meshes)for(const m of g.meshes)for(const p of m.primitives){res.push({pos:getAcc(p.attributes.POSITION),nor:p.attributes.NORMAL!=null?getAcc(p.attributes.NORMAL):null,uv:p.attributes.TEXCOORD_0!=null?getAcc(p.attributes.TEXCOORD_0):null,idx:p.indices!=null?getAcc(p.indices):null,texUrl:texUrl(p.material)});}
+  return res;
+}
+function primsToPreviewMesh(prims){
+  const grp=new THREE.Group();
+  const tl=new THREE.TextureLoader();
+  // Centre + normalise
+  let mx=-Infinity,my=-Infinity,mz=-Infinity,nx=Infinity,ny=Infinity,nz=Infinity;
+  prims.forEach(p=>{for(let i=0;i<p.pos.length;i+=3){nx=Math.min(nx,p.pos[i]);mx=Math.max(mx,p.pos[i]);ny=Math.min(ny,p.pos[i+1]);my=Math.max(my,p.pos[i+1]);nz=Math.min(nz,p.pos[i+2]);mz=Math.max(mz,p.pos[i+2]);}});
+  const cx=(mx+nx)/2,cy=(my+ny)/2,cz=(mz+nz)/2,sc=2/Math.max(mx-nx,my-ny,mz-nz,.001);
+  prims.forEach(({pos,nor,uv,idx,texUrl})=>{
+    const gv=[],gn=[],gu=[];
+    const push=i=>{gv.push((pos[i*3]-cx)*sc,(pos[i*3+1]-cy)*sc,(pos[i*3+2]-cz)*sc);if(nor)gn.push(nor[i*3],nor[i*3+1],nor[i*3+2]);if(uv)gu.push(uv[i*2],uv[i*2+1]);};
+    if(idx)for(let i=0;i<idx.length;i++)push(idx[i]);else for(let i=0;i<pos.length/3;i++)push(i);
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(gv,3));
+    if(gn.length)geo.setAttribute('normal',new THREE.Float32BufferAttribute(gn,3));else geo.computeVertexNormals();
+    if(gu.length===(gv.length/3)*2)geo.setAttribute('uv',new THREE.Float32BufferAttribute(gu,2));
+    const mat=new THREE.MeshStandardMaterial({roughness:.7,metalness:.05,side:THREE.DoubleSide,color:texUrl?0xffffff:0xb0a898});
+    if(texUrl)tl.load(texUrl,t=>{t.flipY=false;mat.map=t;mat.needsUpdate=true;});
+    grp.add(new THREE.Mesh(geo,mat));
+  });
+  return grp;
+}
+
+// ══════════════════════════════════════════════════════════════════
+// SKY UPLOAD
+// ══════════════════════════════════════════════════════════════════
+function handleSky(file){
+  if(!file||selIdx<0)return;
+  levels[selIdx].skyFile=file;levels[selIdx].skyFn=file.name;levels[selIdx].skyMime=file.type||'image/jpeg';
+  document.getElementById('skyInfo').style.display='flex';
+  document.getElementById('skyFn').textContent=file.name;
+  document.getElementById('skyFs').textContent=fmtB(file.size);
+  const t=document.getElementById('skyThumb');
+  t.src=URL.createObjectURL(file);t.style.display='block';
+  markDirty();
+}
+function clearSky(){
+  if(selIdx<0)return;
+  levels[selIdx].skyFile=null;levels[selIdx].skyData=null;levels[selIdx].skyFn=null;
+  clearSkyUI();markDirty();
+}
+function clearSkyUI(){
+  document.getElementById('skyInfo').style.display='none';
+  const t=document.getElementById('skyThumb');t.src='';t.style.display='none';
+}
+
+// Drag-drop on zones
+['modelZone','skyZone'].forEach(id=>{
+  const el=document.getElementById(id);
+  el.addEventListener('dragover',e=>{e.preventDefault();el.classList.add('over');});
+  el.addEventListener('dragleave',()=>el.classList.remove('over'));
+  el.addEventListener('drop',e=>{e.preventDefault();el.classList.remove('over');const f=e.dataTransfer.files[0];if(!f)return;if(id==='modelZone')handleModel(f);else handleSky(f);});
+});
+
+// ══════════════════════════════════════════════════════════════════
+// PUBLISH — encode to base64 and commit levels.json via GitHub API
+// ══════════════════════════════════════════════════════════════════
+async function publish(){
+  showProgress('Reading files…', 5);
+  document.getElementById('publishBtn').disabled=true;
+
+  // 1. Encode any new files to base64
+  let done=0;
+  const total=levels.filter(l=>l.modelFile||l.skyFile).reduce((s,l)=>s+(l.modelFile?1:0)+(l.skyFile?1:0),0)||1;
+
+  for(const lvl of levels){
+    if(lvl.modelFile){
+      lvl.modelData=await fileToBase64(lvl.modelFile);
+      lvl.modelFile=null;
+      done++;showProgress('Encoding model…',Math.round(done/total*50));
+    }
+    if(lvl.skyFile){
+      lvl.skyData=await fileToBase64(lvl.skyFile);
+      lvl.skyFile=null;
+      done++;showProgress('Encoding panorama…',Math.round(done/total*50));
+    }
+  }
+
+  // 2. Apply calibration rotations by baking them into the model data
+  // (The game reads calib_rx/ry/rz and applies them before splitting)
+  showProgress('Building levels.json…', 60);
+
+  const jsonData=levels.map((l,i)=>({
+    id:l.id,
+    name:l.name,
+    pieces:l.pieces,
+    order:i,
+    model_data:l.modelData||null,
+    model_fn:l.modelFn||null,
+    sky_data:l.skyData||null,
+    sky_mime:l.skyMime||'image/jpeg',
+    sky_fn:l.skyFn||null,
+    calib_rx:l.calibRX||0,
+    calib_ry:l.calibRY||0,
+    calib_rz:l.calibRZ||0
+  }));
+
+  showProgress('Committing to GitHub…', 75);
+
+  try{
+    // Get current SHA if file exists (needed for update)
+    let sha=null;
+    try{ const f=await ghGet('levels.json');sha=f.sha; }catch(e){}
+
+    const jsonStr=JSON.stringify(jsonData, null, 2);
+    await ghPut('levels.json', jsonStr, 'Update levels ('+levels.length+' levels)', sha);
+
+    showProgress('Done!', 100);
+    setTimeout(hideProgress, 800);
+    clearDirty();
+    document.getElementById('publishBtn').disabled=false;
+    renderList();
+    toast('Published! Your site will update in ~30 seconds.');
+  }catch(e){
+    hideProgress();
+    document.getElementById('publishBtn').disabled=false;
+    alert('Publish failed: '+e.message);
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+// UTILS
+// ══════════════════════════════════════════════════════════════════
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=()=>{
+      // result is data URL — strip the prefix
+      const b64=r.result.split(',')[1];
+      res(b64);
+    };
+    r.onerror=rej;
+    r.readAsDataURL(file);
+  });
+}
+function fmtB(b){return b>1e6?(b/1e6).toFixed(1)+' MB':(b/1024).toFixed(0)+' KB';}
+function showProgress(label,pct){
+  document.getElementById('progressOverlay').classList.add('show');
+  document.getElementById('progLabel').textContent=label;
+  document.getElementById('progFill').style.width=pct+'%';
+}
+function hideProgress(){ document.getElementById('progressOverlay').classList.remove('show'); }
+function toast(msg){
+  const el=document.getElementById('toast');
+  el.textContent=msg;el.classList.add('show');
+  clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3000);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Build · Puzzle &amp; Form</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;1,300&family=Jost:wght@300;400;500&display=swap');
+:root{
+  --bg:#12100d;--surface:#1c1914;--border:#2e2a22;
+  --text:#ede8df;--muted:#6a6560;--accent:#c8a96e;
+  --snap:#3d8c6f;--danger:#b85b5b;--sel:#5b7db8;
+  --panel:#191611;--card:#222018;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+  font-family:'Jost',sans-serif;font-weight:300}
+
+/* bar */
+#bar{height:50px;background:var(--surface);border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 20px;gap:16px;flex-shrink:0}
+.logo{font-family:'Cormorant Garamond',serif;font-size:16px;font-weight:400;letter-spacing:.04em}
+.logo em{color:var(--accent);font-style:italic}
+.bsep{width:1px;height:14px;background:var(--border)}
+.spacer{flex:1}
+.topBtn{display:flex;align-items:center;gap:6px;background:transparent;
+  border:1px solid var(--border);color:var(--muted);font-family:'Jost',sans-serif;
+  font-size:10px;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;
+  border-radius:2px;cursor:pointer;transition:all .2s;text-decoration:none;white-space:nowrap}
+.topBtn:hover{border-color:var(--accent);color:var(--accent)}
+.topBtn.hi{border-color:var(--accent);color:var(--accent)}
+.topBtn.hi:hover{background:var(--accent);color:#12100d}
+
+/* layout */
+#wrap{display:flex;height:calc(100vh - 50px)}
+
+/* left panel — collection */
+#collection{width:196px;flex-shrink:0;background:var(--panel);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+.phead{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  padding:14px 14px 10px;border-bottom:1px solid var(--border);flex-shrink:0}
+.phead span{float:right;font-size:10px;letter-spacing:.04em;text-transform:none;
+  color:var(--accent);cursor:pointer;opacity:.7}
+.phead span:hover{opacity:1}
+#modelList{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px}
+.mcard{padding:11px 12px;border-radius:3px;cursor:pointer;
+  border:1px solid transparent;transition:all .15s;user-select:none}
+.mcard:hover{background:var(--card);border-color:var(--border)}
+.mcard .mcicon{font-size:14px;margin-bottom:5px;opacity:.5}
+.mcard .mcname{font-size:12px;color:var(--text);line-height:1.3}
+.mcard .mcsub{font-size:9px;color:var(--muted);margin-top:2px;letter-spacing:.04em}
+.mcard.locked{opacity:.4;cursor:not-allowed}
+#emptyCol{padding:20px 14px;font-size:11px;color:var(--muted);line-height:1.8;display:none}
+#emptyCol a{color:var(--accent);text-decoration:none}
+
+/* canvas */
+#cv{flex:1;position:relative;overflow:hidden;cursor:default}
+canvas{width:100%;height:100%;display:block}
+#emptyHint{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  text-align:center;pointer-events:none;opacity:.2;transition:opacity .4s}
+#emptyHint .eh{font-family:'Cormorant Garamond',serif;font-size:46px;margin-bottom:10px}
+#emptyHint p{font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;line-height:2}
+
+/* toolbar */
+#toolbar{position:absolute;bottom:26px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:3px;background:var(--surface);
+  border:1px solid var(--border);border-radius:4px;padding:4px;
+  box-shadow:0 6px 24px rgba(0,0,0,.5)}
+.tbtn{width:38px;height:38px;background:transparent;border:1px solid transparent;
+  border-radius:3px;color:var(--muted);font-size:15px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .15s;
+  position:relative}
+.tbtn:hover{background:var(--card);color:var(--text)}
+.tbtn.on{background:var(--card);border-color:var(--accent);color:var(--accent)}
+.tbtn title{display:none}
+.tsep{width:1px;height:26px;background:var(--border);margin:0 2px}
+.thint{font-size:9px;color:var(--muted);letter-spacing:.06em;padding:0 8px;white-space:nowrap}
+
+/* right panel — objects */
+#objects{width:196px;flex-shrink:0;background:var(--panel);
+  border-left:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden}
+#objList{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:3px}
+.oitem{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:3px;
+  cursor:pointer;border:1px solid transparent;transition:all .15s}
+.oitem:hover{background:var(--card)}.oitem.on{border-color:var(--sel);background:var(--card)}
+.oitem .on_name{font-size:11px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--text)}
+.oitem .on_del{background:none;border:none;color:var(--muted);cursor:pointer;
+  font-size:11px;padding:3px 5px;border-radius:2px;opacity:0;transition:opacity .15s;flex-shrink:0}
+.oitem:hover .on_del,.oitem.on .on_del{opacity:1}
+.oitem .on_del:hover{color:var(--danger)}
+#noObj{padding:20px 14px;font-size:11px;color:var(--muted);line-height:1.8;text-align:center}
+
+/* transform panel */
+#xpanel{border-top:1px solid var(--border);padding:14px;display:none;flex-shrink:0}
+.xlabel{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:12px}
+.xrow{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.xrow .xl{font-size:9px;color:var(--muted);width:16px;text-align:right;flex-shrink:0}
+.xrow input{flex:1;background:var(--card);border:1px solid var(--border);border-radius:2px;
+  color:var(--text);font-family:'Jost',sans-serif;font-size:11px;padding:5px 7px;outline:none;min-width:0}
+.xrow input:focus{border-color:var(--accent)}
+.xrow .xunit{font-size:9px;color:var(--muted);flex-shrink:0}
+.xbtns{display:flex;gap:5px;margin-top:10px}
+.xbtn{flex:1;padding:7px 4px;background:transparent;border:1px solid var(--border);color:var(--muted);
+  border-radius:2px;font-family:'Jost',sans-serif;font-size:9px;letter-spacing:.06em;
+  cursor:pointer;transition:all .15s;text-transform:uppercase}
+.xbtn:hover{border-color:var(--accent);color:var(--accent)}
+.xbtn.red:hover{border-color:var(--danger);color:var(--danger)}
+
+/* toast */
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(8px);
+  background:var(--accent);color:#12100d;padding:7px 16px;border-radius:3px;
+  font-size:11px;letter-spacing:.06em;opacity:0;transition:all .3s;pointer-events:none;z-index:200}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* scrollbar */
+::-webkit-scrollbar{width:4px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+</style>
+</head>
+<body>
+
+<div id="bar">
+  <div class="logo">Puzzle <em>&amp;</em> Form</div>
+  <div class="bsep"></div>
+  <span style="font-size:11px;color:var(--muted);letter-spacing:.04em">Builder</span>
+  <div class="spacer"></div>
+  <button class="topBtn" onclick="clearScene()">Clear scene</button>
+  <button class="topBtn hi" onclick="shareScene()">Share ↗</button>
+  <a class="topBtn" href="index.html">← Puzzles</a>
+</div>
+
+<div id="wrap">
+
+  <!-- ── LEFT: COLLECTION ── -->
+  <div id="collection">
+    <div class="phead">
+      Collection
+      <span onclick="devUnlockAll()" title="Dev: unlock all">⚿</span>
+    </div>
+    <div id="modelList"></div>
+    <div id="emptyCol">
+      Complete puzzles to unlock models. <br><br>
+      <a href="index.html">← Go play →</a>
+    </div>
+  </div>
+
+  <!-- ── CANVAS ── -->
+  <div id="cv">
+    <canvas id="c"></canvas>
+    <div id="emptyHint">
+      <div class="eh">◇</div>
+      <p>Click a model on the left<br>to place it in the scene</p>
+    </div>
+    <!-- toolbar -->
+    <div id="toolbar">
+      <button class="tbtn"  id="tDup"  onclick="duplicateSel()" title="Duplicate (Ctrl+D)">⧉</button>
+      <button class="tbtn"  id="tDel"  onclick="deleteSel()"    title="Delete (Del)">⌫</button>
+      <div class="tsep"></div>
+      <div class="thint">Drag to move · ↕ arrows for height · Right drag to orbit</div>
+    </div>
+  </div>
+
+  <!-- ── RIGHT: OBJECTS ── -->
+  <div id="objects">
+    <div class="phead">Scene</div>
+    <div id="objList">
+      <div id="noObj">Place models to start building your city.</div>
+    </div>
+    <div id="xpanel">
+      <div class="xlabel">Position / Rotation / Scale</div>
+      <div class="xrow"><div class="xl">X</div><input type="number" id="xX" step="0.5" oninput="applyXform()"><div class="xunit">m</div></div>
+      <div class="xrow"><div class="xl">Y</div><input type="number" id="xY" step="0.25" oninput="applyXform()"><div class="xunit">m</div></div>
+      <div class="xrow"><div class="xl">Z</div><input type="number" id="xZ" step="0.5" oninput="applyXform()"><div class="xunit">m</div></div>
+      <div class="xrow"><div class="xl">°</div><input type="number" id="xRY" step="15" oninput="applyXform()"><div class="xunit">Y rot</div></div>
+      <div class="xrow"><div class="xl">↔</div><input type="number" id="xSc" step="0.1" min="0.05" oninput="applyXform()"><div class="xunit">scale</div></div>
+      <div class="xbtns">
+        <button class="xbtn" onclick="duplicateSel()">Copy</button>
+        <button class="xbtn" onclick="resetXform()">Reset</button>
+        <button class="xbtn red" onclick="deleteSel()">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+'use strict';
+// ══════════════════════════════════════════════════════════════
+// GLB LOADER (same as puzzle game — shared node-transform walk)
+// ══════════════════════════════════════════════════════════════
+function loadGLB(buf){
+  const v=new DataView(buf);
+  if(v.getUint32(0,true)!==0x46546C67) throw new Error('Not GLB');
+  let off=12,jc=null,bc=null;
+  while(off<buf.byteLength){
+    const cl=v.getUint32(off,true),ct=v.getUint32(off+4,true);off+=8;
+    if(ct===0x4E4F534A)jc=new TextDecoder().decode(new Uint8Array(buf,off,cl));
+    else if(ct===0x004E4942)bc=buf.slice(off,off+cl);
+    off+=cl;
+  }
+  return extractMeshes(JSON.parse(jc),bc);
+}
+function acc(gltf,bc,i){
+  const a=gltf.accessors[i],bv=gltf.bufferViews[a.bufferView];
+  const o=(bv.byteOffset||0)+(a.byteOffset||0);
+  const n={SCALAR:1,VEC2:2,VEC3:3,VEC4:4,MAT4:16}[a.type]||1;
+  const T={5120:Int8Array,5121:Uint8Array,5122:Int16Array,5123:Uint16Array,5125:Uint32Array,5126:Float32Array}[a.componentType];
+  return new T(bc,o,a.count*n);
+}
+function extractMeshes(g,bc){
+  const res=[],imgs=[];
+  if(g.images)for(const im of g.images){if(im.bufferView!==undefined){const bv=g.bufferViews[im.bufferView];imgs.push(URL.createObjectURL(new Blob([new Uint8Array(bc,bv.byteOffset||0,bv.byteLength)],{type:im.mimeType||'image/jpeg'})));}else imgs.push(null);}
+  const texUrl=mi=>{if(mi==null||!g.materials)return null;const t=g.materials[mi]?.pbrMetallicRoughness?.baseColorTexture?.index;return t!=null?imgs[g.textures[t].source]||null:null;};
+  // mat4 helpers
+  const I=()=>[1,0,0,0,0,1,0,0,0,0,1,0,0,0,0,1];
+  const mul=(a,b)=>{const r=new Array(16);for(let i=0;i<4;i++)for(let j=0;j<4;j++){let s=0;for(let k=0;k<4;k++)s+=a[i+k*4]*b[k+j*4];r[i+j*4]=s;}return r;};
+  const trs=n=>{if(n.matrix)return[...n.matrix];const m=I();if(n.translation){m[12]=n.translation[0];m[13]=n.translation[1];m[14]=n.translation[2];}if(n.rotation){const[qx,qy,qz,qw]=n.rotation;m[0]=1-2*(qy*qy+qz*qz);m[1]=2*(qx*qy+qz*qw);m[2]=2*(qx*qz-qy*qw);m[4]=2*(qx*qy-qz*qw);m[5]=1-2*(qx*qx+qz*qz);m[6]=2*(qy*qz+qx*qw);m[8]=2*(qx*qz+qy*qw);m[9]=2*(qy*qz-qx*qw);m[10]=1-2*(qx*qx+qy*qy);}if(n.scale){const[sx,sy,sz]=n.scale;m[0]*=sx;m[1]*=sx;m[2]*=sx;m[4]*=sy;m[5]*=sy;m[6]*=sy;m[8]*=sz;m[9]*=sz;m[10]*=sz;}return m;};
+  const tp=(m,v)=>{const w=m[3]*v[0]+m[7]*v[1]+m[11]*v[2]+m[15]||1;return[(m[0]*v[0]+m[4]*v[1]+m[8]*v[2]+m[12])/w,(m[1]*v[0]+m[5]*v[1]+m[9]*v[2]+m[13])/w,(m[2]*v[0]+m[6]*v[1]+m[10]*v[2]+m[14])/w];};
+  const tn=(m,v)=>{const x=m[0]*v[0]+m[4]*v[1]+m[8]*v[2],y=m[1]*v[0]+m[5]*v[1]+m[9]*v[2],z=m[2]*v[0]+m[6]*v[1]+m[10]*v[2];const l=Math.sqrt(x*x+y*y+z*z)||1;return[x/l,y/l,z/l];};
+  const visit=(ni,pm)=>{
+    const n=g.nodes[ni],wm=mul(pm,trs(n));
+    if(n.mesh!=null){const msh=g.meshes[n.mesh];for(const p of msh.primitives){const rp=acc(g,bc,p.attributes.POSITION),rn=p.attributes.NORMAL!=null?acc(g,bc,p.attributes.NORMAL):null,uv=p.attributes.TEXCOORD_0!=null?acc(g,bc,p.attributes.TEXCOORD_0):null,ix=p.indices!=null?acc(g,bc,p.indices):null;const vc=rp.length/3,pos=new Float32Array(rp.length),nor=rn?new Float32Array(rn.length):null;for(let i=0;i<vc;i++){const pp=tp(wm,[rp[i*3],rp[i*3+1],rp[i*3+2]]);pos[i*3]=pp[0];pos[i*3+1]=pp[1];pos[i*3+2]=pp[2];if(rn){const nn=tn(wm,[rn[i*3],rn[i*3+1],rn[i*3+2]]);nor[i*3]=nn[0];nor[i*3+1]=nn[1];nor[i*3+2]=nn[2];}}res.push({pos,nor,uv,idx:ix,texUrl:texUrl(p.material)});}}
+    if(n.children)n.children.forEach(c=>visit(c,wm));
+  };
+  const si=g.scene??0;(g.scenes?.[si]?.nodes??g.nodes?.map((_,i)=>i)??[]).forEach(i=>visit(i,I()));
+  if(!res.length&&g.meshes)for(const msh of g.meshes)for(const p of msh.primitives){const rp=acc(g,bc,p.attributes.POSITION),rn=p.attributes.NORMAL!=null?acc(g,bc,p.attributes.NORMAL):null,uv=p.attributes.TEXCOORD_0!=null?acc(g,bc,p.attributes.TEXCOORD_0):null,ix=p.indices!=null?acc(g,bc,p.indices):null;res.push({pos:rp,nor:rn,uv,idx:ix,texUrl:texUrl(p.material)});}
+  return res;
+}
+
+function primsToGroup(prims){
+  // Normalise to 2-unit bounding box, build THREE.Group
+  let mx=-Infinity,my=-Infinity,mz=-Infinity,nx=Infinity,ny=Infinity,nz=Infinity;
+  prims.forEach(p=>{for(let i=0;i<p.pos.length;i+=3){nx=Math.min(nx,p.pos[i]);mx=Math.max(mx,p.pos[i]);ny=Math.min(ny,p.pos[i+1]);my=Math.max(my,p.pos[i+1]);nz=Math.min(nz,p.pos[i+2]);mz=Math.max(mz,p.pos[i+2]);}});
+  const cx=(mx+nx)/2,cy=(my+ny)/2,cz=(mz+nz)/2;
+  const scl=2/Math.max(mx-nx,my-ny,mz-nz,0.001);
+  const grp=new THREE.Group();
+  const tl=new THREE.TextureLoader();
+  prims.forEach(prim=>{
+    const{pos,nor,uv,idx,texUrl}=prim;
+    const gv=[],gn=[],gu=[];
+    const push=i=>{gv.push((pos[i*3]-cx)*scl,(pos[i*3+1]-cy)*scl,(pos[i*3+2]-cz)*scl);if(nor)gn.push(nor[i*3],nor[i*3+1],nor[i*3+2]);if(uv)gu.push(uv[i*2],uv[i*2+1]);};
+    if(idx)for(let i=0;i<idx.length;i++)push(idx[i]);
+    else for(let i=0;i<pos.length/3;i++)push(i);
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(gv,3));
+    if(gn.length)geo.setAttribute('normal',new THREE.Float32BufferAttribute(gn,3));else geo.computeVertexNormals();
+    if(gu.length===(gv.length/3)*2)geo.setAttribute('uv',new THREE.Float32BufferAttribute(gu,2));
+    const mat=new THREE.MeshStandardMaterial({roughness:.7,metalness:.05,side:THREE.DoubleSide,color:texUrl?0xffffff:0xa09890});
+    if(texUrl)tl.load(texUrl,t=>{t.flipY=false;mat.map=t;mat.needsUpdate=true;});
+    const m=new THREE.Mesh(geo,mat);m.castShadow=true;m.receiveShadow=true;
+    grp.add(m);
+  });
+  return grp;
+}
+
+// ══════════════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ══════════════════════════════════════════════════════════════
+const canvas=document.getElementById('c'),wrap=document.getElementById('cv');
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0c0a08);
+scene.fog=new THREE.FogExp2(0x0c0a08,.018);
+
+const cam=new THREE.PerspectiveCamera(46,1,.05,600);
+cam.position.set(0,10,18);
+
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=.85;
+
+(function resize(){const w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();})();
+new ResizeObserver(()=>{const w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();}).observe(wrap);
+
+// Lights
+scene.add(new THREE.AmbientLight(0xfff0e0,.4));
+const sun=new THREE.DirectionalLight(0xffe8c0,1.2);sun.position.set(12,20,10);sun.castShadow=true;
+sun.shadow.mapSize.set(2048,2048);sun.shadow.camera.left=sun.shadow.camera.bottom=-30;sun.shadow.camera.right=sun.shadow.camera.top=30;sun.shadow.camera.far=80;scene.add(sun);
+const fill=new THREE.DirectionalLight(0x8090b0,.3);fill.position.set(-10,6,-10);scene.add(fill);
+
+// Ground — tiled stone effect
+const gnd=new THREE.Mesh(new THREE.PlaneGeometry(200,200,1,1),new THREE.MeshStandardMaterial({color:0x16130e,roughness:.95,metalness:0}));
+gnd.rotation.x=-Math.PI/2;gnd.receiveShadow=true;scene.add(gnd);
+const grid=new THREE.GridHelper(100,100,0x252018,0x1e1c14);grid.position.y=.002;scene.add(grid);
+
+// ══════════════════════════════════════════════════════════════
+// ORBIT
+// ══════════════════════════════════════════════════════════════
+const orb={r:18,th:.5,ph:.7,tx:0,ty:.5,tz:0,on:false,lx:0,ly:0,
+  go(){this.ph=Math.max(.06,Math.min(1.52,this.ph));cam.position.set(this.tx+this.r*Math.sin(this.ph)*Math.sin(this.th),this.ty+this.r*Math.cos(this.ph),this.tz+this.r*Math.sin(this.ph)*Math.cos(this.th));cam.lookAt(this.tx,this.ty,this.tz);}};
+orb.go();
+
+// ══════════════════════════════════════════════════════════════
+// Y-ARROWS — two arrows (up/down) shown above selected object
+// Dragging them moves the object vertically.
+// The group tracks the selected object and scales with camera dist.
+// ══════════════════════════════════════════════════════════════
+const YARROWS = new THREE.Group();
+scene.add(YARROWS);
+YARROWS.visible = false;
+
+function makeYArrow(dir) {
+  // dir: +1 = up arrow, -1 = down arrow
+  const col = 0x44dd88;
+  const mat = new THREE.MeshBasicMaterial({ color: col, depthTest: false, transparent: true, opacity: .92 });
+  const g = new THREE.Group();
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(.05, .05, .7, 8), mat);
+  shaft.renderOrder = 50;
+  shaft.position.y = dir * .35;
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(.14, .32, 8), mat);
+  tip.renderOrder = 50;
+  tip.position.y = dir * .86;
+  if (dir < 0) tip.rotation.z = Math.PI; // flip cone downward
+  g.add(shaft); g.add(tip);
+  // Invisible hit volume — generous cylinder so it's easy to click
+  const hit = new THREE.Mesh(
+    new THREE.CylinderGeometry(.28, .28, .9, 8),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  hit.position.y = dir * .45;
+  hit.userData.yDir = dir; // +1 or -1
+  g.add(hit);
+  return g;
+}
+
+const arrowUp = makeYArrow(+1);
+const arrowDn = makeYArrow(-1);
+arrowUp.position.y =  1.4;  // offset above object centre
+arrowDn.position.y = -1.4;  // offset below object centre
+YARROWS.add(arrowUp);
+YARROWS.add(arrowDn);
+
+function attachArrows(entry) {
+  if (!entry) { YARROWS.visible = false; return; }
+  YARROWS.position.copy(entry.mesh.position);
+  YARROWS.visible = true;
+  // Scale so arrows stay the same screen size regardless of zoom
+  const d = cam.position.distanceTo(YARROWS.position);
+  YARROWS.scale.setScalar(Math.max(.4, d * .09));
+}
+
+// ══════════════════════════════════════════════════════════════
+// STATE
+// ══════════════════════════════════════════════════════════════
+let objects = [];   // [{id, mesh, name, modelIdx}]
+let sel = null;     // currently selected entry
+let uidNext = 1;
+
+// Drag state — only one can be active at a time
+let hDrag = null;   // horizontal drag: {startPos, startHit, plane}
+let yDrag = null;   // Y-arrow drag:   {dir, startY, startMY}
+
+const rc = new THREE.Raycaster();
+const mn = new THREE.Vector2();
+
+function ndc(e) {
+  const r = canvas.getBoundingClientRect();
+  mn.x = ((e.clientX - r.left) / r.width)  * 2 - 1;
+  mn.y = -((e.clientY - r.top)  / r.height) * 2 + 1;
+}
+
+function selectObj(entry) {
+  // Clear previous highlight
+  objects.forEach(o => o.mesh.traverse(c => {
+    if (c.isMesh && c.material?.emissive) c.material.emissive.setHex(0);
+  }));
+  sel = entry;
+  if (entry) {
+    entry.mesh.traverse(c => {
+      if (c.isMesh && c.material?.emissive) c.material.emissive.setHex(0x221a0a);
+    });
+    document.getElementById('xpanel').style.display = 'block';
+    updateXUI();
+  } else {
+    document.getElementById('xpanel').style.display = 'none';
+  }
+  attachArrows(entry);
+  renderObjList();
+}
+
+// ══════════════════════════════════════════════════════════════
+// MOUSE
+// ══════════════════════════════════════════════════════════════
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', e => {
+  // Right/middle drag → orbit
+  if (e.button === 2 || e.button === 1) {
+    orb.on = true; orb.lx = e.clientX; orb.ly = e.clientY; return;
+  }
+  if (e.button !== 0) return;
+
+  ndc(e); rc.setFromCamera(mn, cam);
+
+  // ── 1. Check Y arrows (only when an object is selected) ──
+  if (YARROWS.visible) {
+    const arrowMeshes = [];
+    YARROWS.traverse(c => { if (c.userData.yDir !== undefined) arrowMeshes.push(c); });
+    const hits = rc.intersectObjects(arrowMeshes, false);
+    if (hits.length) {
+      yDrag = {
+        dir:     hits[0].object.userData.yDir,
+        startY:  sel.mesh.position.y,
+        startMY: e.clientY
+      };
+      canvas.style.cursor = 'ns-resize';
+      return;
+    }
+  }
+
+  // ── 2. Click on a scene object → select + begin horizontal drag ──
+  const meshes = [];
+  objects.forEach(o => o.mesh.traverse(c => { if (c.isMesh) meshes.push(c); }));
+  const hits = rc.intersectObjects(meshes, true);
+
+  if (hits.length) {
+    // Walk up to the root group we own
+    let root = hits[0].object;
+    while (root.parent && root.parent !== scene) root = root.parent;
+    const found = objects.find(o => o.mesh === root);
+    if (found) {
+      if (sel !== found) selectObj(found);
+      // Start horizontal drag — plane is flat at the object's current Y
+      const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -found.mesh.position.y);
+      const hitPt = new THREE.Vector3();
+      rc.ray.intersectPlane(plane, hitPt);
+      hDrag = {
+        entry:    found,
+        plane,
+        offset:   found.mesh.position.clone().sub(hitPt) // keep grab offset
+      };
+      canvas.style.cursor = 'grabbing';
+      return;
+    }
+  }
+
+  // ── 3. Clicked empty space → deselect ──
+  selectObj(null);
+});
+
+window.addEventListener('mousemove', e => {
+  // Orbit
+  if (orb.on) {
+    orb.th -= (e.clientX - orb.lx) * .004;
+    orb.ph -= (e.clientY - orb.ly) * .004;
+    orb.lx = e.clientX; orb.ly = e.clientY; orb.go(); return;
+  }
+
+  // Y arrow drag — move object vertically
+  if (yDrag && sel) {
+    const pixelsDelta = yDrag.startMY - e.clientY;   // up = positive
+    const worldUnitsPerPixel = orb.r * .004;
+    sel.mesh.position.y = yDrag.startY + pixelsDelta * worldUnitsPerPixel;
+    YARROWS.position.copy(sel.mesh.position);
+    updateXUI();
+    return;
+  }
+
+  // Horizontal drag — move object on XZ plane
+  if (hDrag) {
+    ndc(e); rc.setFromCamera(mn, cam);
+    const pt = new THREE.Vector3();
+    if (rc.ray.intersectPlane(hDrag.plane, pt)) {
+      const np = pt.add(hDrag.offset);
+      hDrag.entry.mesh.position.x = np.x;
+      hDrag.entry.mesh.position.z = np.z;
+      // Y stays locked — only XZ moves
+      YARROWS.position.copy(hDrag.entry.mesh.position);
+      updateXUI();
+    }
+  }
+});
+
+window.addEventListener('mouseup', () => {
+  orb.on = false;
+  if (yDrag || hDrag) {
+    yDrag = null; hDrag = null;
+    canvas.style.cursor = 'default';
+    saveScene();
+  }
+});
+
+canvas.addEventListener('wheel', e => {
+  orb.r = Math.max(2, Math.min(100, orb.r * (1 + e.deltaY * .001)));
+  orb.go(); e.preventDefault();
+}, { passive: false });
+
+// Hover cursor
+canvas.addEventListener('mousemove', e => {
+  if (orb.on || hDrag || yDrag) return;
+  ndc(e); rc.setFromCamera(mn, cam);
+  // Check arrows first
+  if (YARROWS.visible) {
+    const am = []; YARROWS.traverse(c => { if (c.userData.yDir !== undefined) am.push(c); });
+    if (rc.intersectObjects(am, false).length) { canvas.style.cursor = 'ns-resize'; return; }
+  }
+  // Check objects
+  const ms = []; objects.forEach(o => o.mesh.traverse(c => { if (c.isMesh) ms.push(c); }));
+  canvas.style.cursor = rc.intersectObjects(ms, true).length ? 'grab' : 'default';
+});
+
+window.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return;
+  if (e.key === 'Delete' || e.key === 'Backspace') deleteSel();
+  else if ((e.key === 'd' || e.key === 'D') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); duplicateSel(); }
+  else if (e.key === 'Escape') selectObj(null);
+});
+
+// ══════════════════════════════════════════════════════════════
+// XFORM UI
+// ══════════════════════════════════════════════════════════════
+function updateXUI(){
+  if(!sel) return;
+  const p=sel.mesh.position,r=sel.mesh.rotation,s=sel.mesh.scale;
+  document.getElementById('xX').value=p.x.toFixed(2);
+  document.getElementById('xY').value=p.y.toFixed(2);
+  document.getElementById('xZ').value=p.z.toFixed(2);
+  document.getElementById('xRY').value=(r.y*180/Math.PI).toFixed(1);
+  document.getElementById('xSc').value=s.x.toFixed(2);
+}
+function applyXform(){
+  if(!sel) return;
+  sel.mesh.position.set(+document.getElementById('xX').value||0,+document.getElementById('xY').value||0,+document.getElementById('xZ').value||0);
+  sel.mesh.rotation.y=(+document.getElementById('xRY').value||0)*Math.PI/180;
+  const sc=Math.max(.05,+document.getElementById('xSc').value||1);
+  sel.mesh.scale.setScalar(sc);
+  YARROWS.position.copy(sel.mesh.position);
+  attachArrows(sel);
+  saveScene();
+}
+function resetXform(){
+  if(!sel) return;
+  sel.mesh.position.set((Math.random()-.5)*6,0,(Math.random()-.5)*6);
+  sel.mesh.rotation.set(0,0,0);sel.mesh.scale.setScalar(1);
+  YARROWS.position.copy(sel.mesh.position);attachArrows(sel);updateXUI();saveScene();
+}
+
+// ══════════════════════════════════════════════════════════════
+// OBJECT MANAGEMENT
+// ══════════════════════════════════════════════════════════════
+function renderObjList(){
+  const el=document.getElementById('objList');
+  if(!objects.length){el.innerHTML='<div id="noObj">Place models to start building your city.</div>';return;}
+  el.innerHTML=objects.map((o,i)=>`<div class="oitem${sel===o?' on':''}" data-i="${i}">
+    <span class="on_name">${o.name}</span>
+    <button class="on_del" data-i="${i}" title="Delete">✕</button>
+  </div>`).join('');
+  el.querySelectorAll('.oitem').forEach(div=>{
+    div.addEventListener('click',()=>selectObj(objects[+div.dataset.i]));
+  });
+  el.querySelectorAll('.on_del').forEach(btn=>{
+    btn.addEventListener('click',e=>{e.stopPropagation();removeObj(+btn.dataset.i);});
+  });
+}
+
+function removeObj(i){
+  const o=objects[i];if(!o) return;
+  scene.remove(o.mesh);
+  objects.splice(i,1);
+  if(sel===o) selectObj(null);
+  if(!objects.length) document.getElementById('emptyHint').style.opacity='.2';
+  renderObjList();saveScene();
+}
+function deleteSel(){if(sel) removeObj(objects.indexOf(sel));}
+function duplicateSel(){
+  if(!sel) return;
+  const mi=sel.modelIdx;
+  const newPos=sel.mesh.position.clone().add(new THREE.Vector3(2,0,0));
+  placeModel(mi,newPos,sel.mesh.rotation.clone(),sel.mesh.scale.clone());
+}
+
+function placeModel(modelIdx,pos,rot,scl){
+  const col=collection[modelIdx];if(!col) return;
+  const id=uidNext++;
+  // placeholder while loading
+  const ph=new THREE.Group();
+  ph.position.copy(pos||new THREE.Vector3((Math.random()-.5)*8,0,(Math.random()-.5)*8));
+  if(rot) ph.rotation.copy(rot);
+  if(scl) ph.scale.copy(scl);
+  scene.add(ph);
+  const count=objects.filter(o=>o.modelIdx===modelIdx).length+1;
+  const entry={id,mesh:ph,name:col.name+(count>1?' '+count:''),modelIdx};
+  objects.push(entry);
+  document.getElementById('emptyHint').style.opacity='0';
+  selectObj(entry);renderObjList();
+  // async load
+  fetch(col.url)
+    .then(r=>r.arrayBuffer())
+    .then(buf=>{
+      const grp=primsToGroup(loadGLB(buf));
+      grp.position.copy(ph.position);
+      grp.rotation.copy(ph.rotation);
+      grp.scale.copy(ph.scale);
+      scene.remove(ph);scene.add(grp);
+      entry.mesh=grp;
+      if(sel===entry) selectObj(entry);
+      renderObjList();
+      toast(col.name+' placed');
+    })
+    .catch(err=>console.error('load error',err));
+  saveScene();
+}
+
+function clearScene(){
+  if(objects.length&&!confirm('Clear all? Your scene will be lost.')) return;
+  objects.forEach(o=>scene.remove(o.mesh));
+  objects=[];selectObj(null);
+  document.getElementById('emptyHint').style.opacity='.2';
+  renderObjList();saveScene();
+}
+
+// ══════════════════════════════════════════════════════════════
+// COLLECTION
+// ══════════════════════════════════════════════════════════════
+let collection=[];
+function loadCollection(){
+  try{collection=JSON.parse(localStorage.getItem('puzzle_collection')||'[]');}catch(e){collection=[];}
+  const el=document.getElementById('modelList'),emp=document.getElementById('emptyCol');
+  if(!collection.length){el.style.display='none';emp.style.display='block';return;}
+  emp.style.display='none';el.style.display='flex';
+  el.innerHTML=collection.map((m,i)=>`
+    <div class="mcard" onclick="placeModel(${i})">
+      <div class="mcicon">⬡</div>
+      <div class="mcname">${m.name}</div>
+      <div class="mcsub">Click to place · copy freely</div>
+    </div>`).join('');
+}
+
+// devUnlockAll: complete puzzles to unlock models
+
+// ══════════════════════════════════════════════════════════════
+// SAVE / LOAD / SHARE
+// ══════════════════════════════════════════════════════════════
+function saveScene(){
+  const data=objects.map(o=>({
+    modelIdx:o.modelIdx,name:o.name,
+    px:+o.mesh.position.x.toFixed(3),py:+o.mesh.position.y.toFixed(3),pz:+o.mesh.position.z.toFixed(3),
+    rx:+o.mesh.rotation.x.toFixed(4),ry:+o.mesh.rotation.y.toFixed(4),rz:+o.mesh.rotation.z.toFixed(4),
+    sx:+o.mesh.scale.x.toFixed(3),sy:+o.mesh.scale.y.toFixed(3),sz:+o.mesh.scale.z.toFixed(3)
+  }));
+  localStorage.setItem('puzzle_scene',JSON.stringify(data));
+}
+function loadSavedScene(){
+  let data=[];
+  try{data=JSON.parse(localStorage.getItem('puzzle_scene')||'[]');}catch(e){}
+  if(!data.length) return;
+  // Load sequentially, restoring transforms after mesh loads
+  data.forEach((d,i)=>{
+    if(d.modelIdx==null||d.modelIdx>=collection.length) return;
+    const pos=new THREE.Vector3(d.px,d.py,d.pz);
+    const rot=new THREE.Euler(d.rx,d.ry,d.rz);
+    const scl=new THREE.Vector3(d.sx,d.sy,d.sz);
+    placeModel(d.modelIdx,pos,rot,scl);
+    // override auto-name after push
+    if(objects.length) objects[objects.length-1].name=d.name;
+  });
+}
+function shareScene(){
+  // Encode scene as URL hash
+  const data=objects.map(o=>({
+    m:o.modelIdx,
+    p:[+o.mesh.position.x.toFixed(1),+o.mesh.position.y.toFixed(1),+o.mesh.position.z.toFixed(1)],
+    r:+o.mesh.rotation.y.toFixed(2),
+    s:+o.mesh.scale.x.toFixed(2)
+  }));
+  const hash='#s='+btoa(JSON.stringify(data));
+  const url=location.href.split('#')[0]+hash;
+  navigator.clipboard.writeText(url).then(()=>toast('Link copied to clipboard!')).catch(()=>{
+    prompt('Copy this link:',url);
+  });
+}
+function loadSharedScene(){
+  const hash=location.hash;
+  if(!hash.startsWith('#s=')) return false;
+  try{
+    const data=JSON.parse(atob(hash.slice(3)));
+    data.forEach(d=>{
+      if(d.m==null||d.m>=collection.length) return;
+      const pos=new THREE.Vector3(...d.p);
+      const rot=new THREE.Euler(0,d.r,0);
+      const scl=new THREE.Vector3(d.s,d.s,d.s);
+      placeModel(d.m,pos,rot,scl);
+    });
+    return true;
+  }catch(e){return false;}
+}
+
+// ══════════════════════════════════════════════════════════════
+// RENDER LOOP
+// ══════════════════════════════════════════════════════════════
+(function loop(){
+  requestAnimationFrame(loop);
+  if (YARROWS.visible && sel) {
+    const d = cam.position.distanceTo(YARROWS.position);
+    YARROWS.scale.setScalar(Math.max(.4, d * .09));
+  }
+  renderer.render(scene, cam);
+})();
+
+// ══════════════════════════════════════════════════════════════
+// TOAST
+// ══════════════════════════════════════════════════════════════
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),2200);}
+
+// ══════════════════════════════════════════════════════════════
+// INIT
+// ══════════════════════════════════════════════════════════════
+loadCollection();
+if(!loadSharedScene()) loadSavedScene();
+</script>
+</body>
+</html>
