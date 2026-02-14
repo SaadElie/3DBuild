@@ -140,12 +140,7 @@ canvas{width:100%;height:100%;display:block}
     </div>
     <div class="psec" id="pcSec" style="display:none">
       <div class="plabel">Pieces</div>
-      <div class="stepper">
-        <button onclick="G.changePieces(-1)">−</button>
-        <div class="sv" id="pcVal">15</div>
-        <button onclick="G.changePieces(+1)">+</button>
-        <span style="font-size:10px;color:var(--muted);margin-left:4px">rebuild</span>
-      </div>
+      <div style="font-size:13px;font-weight:400;color:var(--text)" id="pcVal">—</div>
     </div>
     <div class="psec">
       <div class="plabel">Actions</div>
@@ -712,10 +707,21 @@ const G=(()=>{
     const meshes=[];
     pieces.forEach(p=>{if(!p.userData.isPlaced)p.traverse(c=>{if(c.isMesh&&!c.userData.isOutline)meshes.push(c);});});
     const hits=rc.intersectObjects(meshes,false);
-    if(!hits.length){dragging=null;attachGizmo(null);return;}
+    if(!hits.length){
+      // Clicked empty space — deselect
+      if(dragging){setOutline(dragging,0);dragging=null;attachGizmo(null);}
+      return;
+    }
     let root=hits[0].object;
     while(root.parent&&!pieces.includes(root))root=root.parent;
     if(!pieces.includes(root)||root.userData.isPlaced){dragging=null;attachGizmo(null);return;}
+    // Click same piece again → deselect/release it
+    if(root===dragging){
+      setOutline(dragging,0);dragging=null;attachGizmo(null);
+      canvas.style.cursor='default';return;
+    }
+    // Deselect previous if any
+    if(dragging) setOutline(dragging,0);
     dragging=root;
     // Horizontal plane at piece's current Y
     hPlane.constant=-root.position.y;
@@ -806,10 +812,16 @@ const G=(()=>{
     const meshes=[];
     pieces.forEach(p=>{if(!p.userData.isPlaced)p.traverse(c=>{if(c.isMesh&&!c.userData.isOutline)meshes.push(c);});});
     const hits=rc.intersectObjects(meshes,false);
-    if(!hits.length){dragging=null;attachGizmo(null);return;}
+    if(!hits.length){
+      if(dragging){setOutline(dragging,0);dragging=null;attachGizmo(null);}
+      return;
+    }
     let root=hits[0].object;
     while(root.parent&&!pieces.includes(root))root=root.parent;
     if(!pieces.includes(root)||root.userData.isPlaced){dragging=null;attachGizmo(null);return;}
+    // Tap same piece → deselect
+    if(root===dragging){setOutline(dragging,0);dragging=null;attachGizmo(null);return;}
+    if(dragging) setOutline(dragging,0);
     dragging=root;
     hPlane.constant=-root.position.y;
     const pt=new THREE.Vector3();
@@ -946,18 +958,22 @@ const G=(()=>{
         document.getElementById('empty').style.display='none';
         document.getElementById('barLevel').textContent=lvl.name;
         document.getElementById('pcSec').style.display='flex';
-        document.getElementById('pcVal').textContent=N;
+        document.getElementById('pcVal').textContent=N+' pieces';
         orb.r=12;orb.theta=.4;orb.phi=.95;orb.tx=0;orb.ty=0;orb.tz=0;orb.update();
         refreshAll();
       }
 
       if(tex){
-        const loader=new THREE.TextureLoader();
-        loader.load(tex,(t)=>{
-          t.flipY=false;          // glTF spec: Y is NOT flipped
-          t.needsUpdate=true;
-          texture=t;finishBuild();
-        },undefined,()=>{texture=null;finishBuild();});
+        // Use Image() directly — more reliable with blob URLs than TextureLoader
+        const img=new Image();
+        img.onload=()=>{
+          texture=new THREE.Texture(img);
+          texture.flipY=false; // glTF spec
+          texture.needsUpdate=true;
+          finishBuild();
+        };
+        img.onerror=()=>{texture=null;finishBuild();};
+        img.src=tex;
       } else {
         finishBuild();
       }
@@ -1128,11 +1144,7 @@ const G=(()=>{
       document.getElementById('winModal').classList.remove('show');
       if(curIdx<levels.length-1) buildPuzzle(curIdx+1);
     },
-    changePieces(d){
-      if(curIdx<0)return;
-      levels[curIdx].numPieces=Math.max(2,Math.min(30,levels[curIdx].numPieces+d));
-      buildPuzzle(curIdx);
-    },
+
     removeLvl(){
       if(curIdx<0)return;levels.splice(curIdx,1);clearAll();
       if(levels.length>0)buildPuzzle(Math.min(curIdx,levels.length-1));
@@ -1173,7 +1185,7 @@ async function submitEmail(){
   btn.disabled = true; btn.textContent = 'Sending…';
 
   try{
-    if(FORMSPREE_ID === 'mreaqbee'){
+    if(FORMSPREE_ID === 'YOUR_FORM_ID'){
       // No endpoint yet — log only
       console.log('[Puzzle & Form] Email captured (configure Formspree to save):', email);
       await new Promise(r => setTimeout(r, 700));
