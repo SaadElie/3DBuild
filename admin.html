@@ -234,23 +234,24 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
 const ADMIN_PASSWORD = 'admin'; // Change this to your real password
 
 // ── Auto-detect repo from GitHub Pages URL ──────────────────
-// e.g. https://saadelie.github.io/3DBuild/admin.html
-// → repo = saadelie/3DBuild
+// e.g. https://owlie69.github.io/3DBuild/admin.html
+// → repo = owlie69/3DBuild
 function detectRepo(){
-  const host = location.hostname; // saadelie.github.io
+  const host = location.hostname; // owlie69.github.io
   const path = location.pathname; // /3DBuild/admin.html
   const parts = path.split('/').filter(Boolean); // ['3DBuild','admin.html']
-  const username = host.split('.')[0]; // saadelie
+  const username = host.split('.')[0]; // owlie69 (read from URL — works automatically)
   const repoName = parts[0] || '';     // 3DBuild
   return repoName ? username+'/'+repoName : null;
 }
 
-// Show detected repo in login form
-(function(){
+// Show detected repo in login form on page load
+document.addEventListener('DOMContentLoaded',function(){
   const repo = detectRepo();
   const el = document.getElementById('repoDisplay');
   if(el) el.textContent = repo || 'Could not detect — are you on GitHub Pages?';
-})();
+  if(el && repo) el.style.color='var(--t)';
+});
 
 async function login(){
   const pw  = document.getElementById('inPw').value;
@@ -571,56 +572,81 @@ function resetCalib(){
 
 // ── Inline preview renderer ────────────────────────────────────
 let prevRenderer=null, prevScene=null, prevCamera=null, previewModel=null;
-let prevOrb={r:4,th:.4,ph:.7,on:false,lx:0,ly:0};
+let prevOrb={r:4,th:.5,ph:.9,on:false,lx:0,ly:0,tx:0,ty:0,tz:0};
 
 function initPreview(arrayBuffer){
+  // Show calib section first so container has real dimensions
+  document.getElementById('calibSection').style.display='block';
   const container=document.getElementById('previewContainer');
   const canvas=document.getElementById('previewCanvas');
 
-  if(!prevRenderer){
-    prevRenderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
-    prevRenderer.setPixelRatio(Math.min(devicePixelRatio,2));
-    prevRenderer.setClearColor(0x1a1814,1);
-    prevRenderer.shadowMap.enabled=true;
-    prevScene=new THREE.Scene();
-    prevCamera=new THREE.PerspectiveCamera(46,container.clientWidth/container.clientHeight,.01,100);
-    prevScene.add(new THREE.AmbientLight(0xffffff,.7));
-    const sl=new THREE.DirectionalLight(0xfff8e8,1.1);sl.position.set(4,8,5);prevScene.add(sl);
-    // Resize
-    const obs=new ResizeObserver(()=>{
-      const w=container.clientWidth,h=container.clientHeight;
-      prevRenderer.setSize(w,h,false);prevCamera.aspect=w/h;prevCamera.updateProjectionMatrix();
-    });obs.observe(container);
-    prevRenderer.setSize(container.clientWidth,container.clientHeight,false);
-    // Orbit
-    canvas.addEventListener('mousedown',e=>{if(e.button===0||e.button===2){prevOrb.on=true;prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;}e.stopPropagation();});
-    window.addEventListener('mousemove',e=>{
-      if(!prevOrb.on)return;
-      prevOrb.th-=(e.clientX-prevOrb.lx)*.005;prevOrb.ph-=(e.clientY-prevOrb.ly)*.005;
-      prevOrb.ph=Math.max(.05,Math.min(1.5,prevOrb.ph));
-      prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;
+  function doSetup(){
+    const w=container.offsetWidth||480;
+    const h=220;
+    if(!prevRenderer){
+      prevRenderer=new THREE.WebGLRenderer({canvas,antialias:true});
+      prevRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+      prevRenderer.setSize(w,h,false);
+      prevRenderer.setClearColor(0x14110e,1);
+      prevScene=new THREE.Scene();
+      prevCamera=new THREE.PerspectiveCamera(46,w/h,.01,200);
+      // Lights
+      prevScene.add(new THREE.AmbientLight(0xfff0e0,.55));
+      const sun=new THREE.DirectionalLight(0xfff8e8,1.3);sun.position.set(5,10,7);prevScene.add(sun);
+      const fill=new THREE.DirectionalLight(0x8090b0,.25);fill.position.set(-5,2,-5);prevScene.add(fill);
+      // Ground grid
+      prevScene.add(new THREE.GridHelper(10,10,0x332e28,0x2a2620));
+      // Resize observer
+      new ResizeObserver(()=>{
+        const nw=container.offsetWidth;const nh=220;
+        if(!nw)return;
+        prevRenderer.setSize(nw,nh,false);
+        prevCamera.aspect=nw/nh;prevCamera.updateProjectionMatrix();
+      }).observe(container);
+      // Mouse orbit
+      canvas.addEventListener('mousedown',e=>{prevOrb.on=true;prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;e.preventDefault();});
+      canvas.addEventListener('touchstart',e=>{const t=e.touches[0];prevOrb.on=true;prevOrb.lx=t.clientX;prevOrb.ly=t.clientY;},{passive:true});
+      window.addEventListener('mousemove',e=>{
+        if(!prevOrb.on)return;
+        prevOrb.th-=(e.clientX-prevOrb.lx)*.006;
+        prevOrb.ph=Math.max(.05,Math.min(1.55,prevOrb.ph-(e.clientY-prevOrb.ly)*.006));
+        prevOrb.lx=e.clientX;prevOrb.ly=e.clientY;updatePrevOrb();
+      });
+      window.addEventListener('touchmove',e=>{
+        if(!prevOrb.on)return;const t=e.touches[0];
+        prevOrb.th-=(t.clientX-prevOrb.lx)*.006;
+        prevOrb.ph=Math.max(.05,Math.min(1.55,prevOrb.ph-(t.clientY-prevOrb.ly)*.006));
+        prevOrb.lx=t.clientX;prevOrb.ly=t.clientY;updatePrevOrb();
+      },{passive:true});
+      window.addEventListener('mouseup',()=>prevOrb.on=false);
+      window.addEventListener('touchend',()=>prevOrb.on=false);
+      canvas.addEventListener('wheel',e=>{prevOrb.r=Math.max(.5,Math.min(30,prevOrb.r*(1+e.deltaY*.001)));updatePrevOrb();e.preventDefault();},{passive:false});
+      // Render loop
+      (function loop(){requestAnimationFrame(loop);if(prevRenderer&&prevScene&&prevCamera)prevRenderer.render(prevScene,prevCamera);})();
+    }
+
+    // Remove old model
+    if(previewModel){prevScene.remove(previewModel);previewModel=null;}
+
+    // Parse + show model
+    try{
+      const prims=loadGLBSimple(arrayBuffer);
+      const group=primsToPreviewMesh(prims);
+      prevScene.add(group);previewModel=group;
+      applyCalib();
+      // Auto-fit
+      const box=new THREE.Box3().setFromObject(group);
+      const sz=box.getSize(new THREE.Vector3()).length();
+      const ctr=box.getCenter(new THREE.Vector3());
+      prevOrb.tx=ctr.x;prevOrb.ty=ctr.y;prevOrb.tz=ctr.z;
+      prevOrb.r=sz*1.7;prevOrb.ph=.9;prevOrb.th=.6;
       updatePrevOrb();
-    });
-    window.addEventListener('mouseup',()=>prevOrb.on=false);
-    canvas.addEventListener('wheel',e=>{prevOrb.r=Math.max(.5,Math.min(20,prevOrb.r*(1+e.deltaY*.001)));updatePrevOrb();e.stopPropagation();e.preventDefault();},{passive:false});
-    // Render loop
-    (function loop(){requestAnimationFrame(loop);if(prevRenderer)prevRenderer.render(prevScene,prevCamera);})();
+    }catch(err){console.error('preview error',err);}
   }
 
-  // Remove old model
-  if(previewModel){prevScene.remove(previewModel);previewModel=null;}
-
-  // Parse GLB
-  try{
-    const prims=loadGLBSimple(arrayBuffer);
-    const group=primsToPreviewMesh(prims);
-    prevScene.add(group);previewModel=group;
-    applyCalib();
-    // Auto-fit camera
-    const box=new THREE.Box3().setFromObject(group);
-    const size=box.getSize(new THREE.Vector3()).length();
-    prevOrb.r=size*1.4;updatePrevOrb();
-  }catch(e){console.error('preview GLB error',e);}
+  // Wait for CSS to apply (container may be 0 if just made visible)
+  if(container.offsetWidth>0){doSetup();}
+  else{setTimeout(doSetup,50);}
 }
 
 function applyCalib(){
@@ -635,10 +661,10 @@ function applyCalib(){
 function updatePrevOrb(){
   if(!prevCamera)return;
   prevCamera.position.set(
-    prevOrb.r*Math.sin(prevOrb.ph)*Math.sin(prevOrb.th),
-    prevOrb.r*Math.cos(prevOrb.ph),
-    prevOrb.r*Math.sin(prevOrb.ph)*Math.cos(prevOrb.th)
-  );prevCamera.lookAt(0,0,0);
+    prevOrb.tx+prevOrb.r*Math.sin(prevOrb.ph)*Math.sin(prevOrb.th),
+    prevOrb.ty+prevOrb.r*Math.cos(prevOrb.ph),
+    prevOrb.tz+prevOrb.r*Math.sin(prevOrb.ph)*Math.cos(prevOrb.th)
+  );prevCamera.lookAt(prevOrb.tx,prevOrb.ty,prevOrb.tz);
 }
 
 // ── Full GLB loader with node-tree walk — same as game, gives correct transforms + textures ──
