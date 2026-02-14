@@ -937,7 +937,7 @@ const G=(()=>{
       const maxD=Math.max(mxx-mnx,mxy-mny,mxz-mnz)||1,scl=3/maxD;
       const nf=faces.map(f=>({
         pos:f.pos.map(v=>[(v[0]-cx)*scl,(v[1]-cy)*scl,(v[2]-cz)*scl]),
-        nor:f.nor,uv:f.uv,texUrl:f.texUrl,
+        nor:f.nor,uv:f.uv,col:f.col,texUrl:f.texUrl,
         cx:(f.cx-cx)*scl,cy:(f.cy-cy)*scl,cz:(f.cz-cz)*scl
       }));
 
@@ -947,12 +947,13 @@ const G=(()=>{
       const hasVertCol=nf[0]&&nf[0].col&&nf[0].col.length>0;
       function finishBuild(){
         // Ghost
-        const ghostMat=new THREE.MeshStandardMaterial({
+        const ghostMatProps={
           color:(texture||hasVertCol)?0xffffff:0xb0a898,
-          vertexColors:(!texture&&hasVertCol),
           transparent:true,opacity:(texture||hasVertCol)?.13:.07,
           depthWrite:false,side:THREE.DoubleSide
-        });
+        };
+        if(!texture&&hasVertCol) ghostMatProps.vertexColors=true;
+        const ghostMat=new THREE.MeshStandardMaterial(ghostMatProps);
         if(texture) ghostMat.map=texture;
         ghostMesh=new THREE.Mesh(buildFullGeo(nf),ghostMat);
         ghostMesh.userData.isGhost=true;
