@@ -112,13 +112,13 @@ canvas{width:100%;height:100%;display:block}
 </head>
 <body>
 <div id="bar">
-  <div class="logo">Puzzle <em>&amp;</em> Form</div>
+  <div class="logo">Build Your <em>Paris</em></div>
   <div class="sep"></div>
   <div id="barLevel">Loading…</div>
   <div class="spacer"></div>
   <div class="bstat">Pieces&nbsp;<b id="bPieces">0 / 0</b></div>
   <div class="bstat">Time&nbsp;<b id="bTime">0:00</b></div>
-  <div class="bstat">Moves&nbsp;<b id="bMoves">0</b></div>
+  <div class="bstat">Placements&nbsp;<b id="bMoves">0</b></div>
 </div>
 <div id="wrap">
   <div id="cv">
@@ -165,7 +165,7 @@ canvas{width:100%;height:100%;display:block}
     </div>
     <div class="mstats">
       <div class="mst"><span class="v" id="wTime">—</span><span class="l">Time</span></div>
-      <div class="mst"><span class="v" id="wMoves">—</span><span class="l">Moves</span></div>
+      <div class="mst"><span class="v" id="wMoves">—</span><span class="l">Placements</span></div>
       <div class="mst"><span class="v" id="wStarLabel">—</span><span class="l">Rating</span></div>
     </div>
     <div id="winUnlock" style="display:none;padding:14px 0 2px;border-top:1px solid var(--border);margin-top:4px">
@@ -598,6 +598,7 @@ const G=(()=>{
   let dragging=null;
   let dragArrowActive=null; // 'up'|'down' — Y gizmo drag
   let dragArrowStartY=0, dragArrowStartMY=0;
+  let dragMoved=false; // true when piece actually moved — count one placement on release
   const hPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0); // horizontal plane
   const dragOffset=new THREE.Vector3();
   const rc=new THREE.Raycaster();
@@ -750,6 +751,7 @@ const G=(()=>{
     // Deselect previous if any
     if(dragging) setOutline(dragging,0);
     dragging=root;
+    dragMoved=false; // reset for new drag
     // Horizontal plane at piece's current Y
     hPlane.constant=-root.position.y;
     const pt=new THREE.Vector3();
@@ -772,7 +774,7 @@ const G=(()=>{
       dragging.position.y=newY;
       arrowGroup.position.copy(dragging.position);
       liveProximity(dragging);
-      moves++;refreshStats();
+      dragMoved=true;
       return;
     }
     if(!dragging) return;
@@ -784,16 +786,25 @@ const G=(()=>{
       dragging.position.copy(np);
       arrowGroup.position.copy(np);
       liveProximity(dragging);
-      moves++;refreshStats();
+      dragMoved=true;
     }
   });
 
   window.addEventListener('mouseup',e=>{
     if(orb.active){orb.active=false;return;}
-    if(dragArrowActive){dragArrowActive=null;canvas.style.cursor='default';return;}
+    if(dragArrowActive){
+      dragArrowActive=null;
+      if(dragMoved){moves++;refreshStats();dragMoved=false;}
+      canvas.style.cursor='default';
+      return;
+    }
     if(dragging){
+      if(dragMoved){moves++;refreshStats();dragMoved=false;}
       if(trySnap(dragging)){dragging=null;attachGizmo(null);}
-      else{setOutline(dragging,0);}
+      else{
+        // Keep piece selected (highlighted) so user can tap arrows or re-grab
+        setOutline(dragging, 0.15);
+      }
       canvas.style.cursor='default';
     }
   });
@@ -850,6 +861,7 @@ const G=(()=>{
     if(root===dragging){setOutline(dragging,0);dragging=null;attachGizmo(null);return;}
     if(dragging) setOutline(dragging,0);
     dragging=root;
+    dragMoved=false; // reset for new drag
     hPlane.constant=-root.position.y;
     const pt=new THREE.Vector3();
     rc.ray.intersectPlane(hPlane,pt);
@@ -879,7 +891,7 @@ const G=(()=>{
       const dy=(dragArrowStartMY-t.clientY)*0.015;
       dragging.position.y=Math.max(-2.0,dragArrowStartY+dy);
       arrowGroup.position.copy(dragging.position);
-      liveProximity(dragging);moves++;refreshStats();return;
+      liveProximity(dragging);dragMoved=true;return;
     }
     if(!dragging) return;
     touchNDC(t);rc.setFromCamera(mn,camera);
@@ -889,17 +901,25 @@ const G=(()=>{
       np.y=dragging.position.y;
       dragging.position.copy(np);
       arrowGroup.position.copy(np);
-      liveProximity(dragging);moves++;refreshStats();
+      liveProximity(dragging);dragMoved=true;
     }
   },{passive:false});
 
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
     touchOrb=null;
-    if(dragArrowActive){dragArrowActive=null;return;}
+    if(dragArrowActive){
+      dragArrowActive=null;
+      if(dragMoved){moves++;refreshStats();dragMoved=false;}
+      return;
+    }
     if(dragging){
+      if(dragMoved){moves++;refreshStats();dragMoved=false;}
       if(trySnap(dragging)){dragging=null;attachGizmo(null);}
-      else setOutline(dragging,0);
+      else{
+        // Keep selected so arrows remain accessible
+        setOutline(dragging, 0.15);
+      }
     }
     touch1=null;
   },{passive:false});
@@ -1227,7 +1247,7 @@ async function submitEmail(){
   try{
     if(FORMSPREE_ID === 'YOUR_FORM_ID'){
       // No endpoint yet — log only
-      console.log('[Puzzle & Form] Email captured (configure Formspree to save):', email);
+      console.log('[Build Your Paris] Email captured (configure Formspree to save):', email);
       await new Promise(r => setTimeout(r, 700));
     } else {
       const res = await fetch('https://formspree.io/f/' + FORMSPREE_ID, {
