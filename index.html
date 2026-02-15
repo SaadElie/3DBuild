@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Puzzle · 3D</title>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Jost:wght@300;400;500&display=swap');
 :root{--bg:#f5f3ef;--surface:#ffffff;--border:#e2ddd8;--text:#1a1814;--muted:#9a9690;--accent:#c8a96e;--snap:#3d8c6f;--sel:#5b7db8;--danger:#b85b5b}
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
-html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Jost',sans-serif;font-weight:300}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Jost',sans-serif;font-weight:300;-webkit-tap-highlight-color:transparent;overscroll-behavior:none}
 #bar{height:52px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;gap:24px;flex-shrink:0}
 .logo{font-family:'Cormorant Garamond',serif;font-size:17px;font-weight:400;letter-spacing:.05em}.logo em{font-style:italic;color:#2d6e4e}
 .sep{width:1px;height:16px;background:var(--border)}
@@ -91,22 +91,56 @@ canvas{width:100%;height:100%;display:block}
 .ethanks .ei{font-size:28px;margin-bottom:10px}
 .ethanks p{font-size:12px;color:var(--muted);line-height:1.7}
 
+/* Toast */
+#toast{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:var(--surface);border:1px solid var(--border);border-radius:4px;padding:10px 36px 10px 16px;font-size:12px;color:var(--text);letter-spacing:.03em;box-shadow:0 2px 12px rgba(0,0,0,.08);opacity:0;pointer-events:none;transition:opacity .35s,transform .35s;z-index:30;white-space:nowrap}
+#toast.show{opacity:1;pointer-events:auto;animation:toastIn .4s ease forwards}
+@keyframes toastIn{from{opacity:0;transform:translateX(-50%) translateY(-10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+#toast.hide{animation:toastOut .3s ease forwards}
+@keyframes toastOut{from{opacity:1;transform:translateX(-50%) translateY(0)}to{opacity:0;transform:translateX(-50%) translateY(-10px)}}
+#toast .tx{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;padding:2px 4px;line-height:1}
+#toast .tx:hover{color:var(--text)}
+
+/* Touch */
+canvas{touch-action:none}
+
 /* Mobile */
 @media(max-width:640px){
-  #bar{padding:0 12px;gap:10px;height:46px}
-  .logo{font-size:15px}
+  #bar{padding:0 10px;gap:6px;height:44px}
+  .logo{font-size:14px}
   .sep{display:none}
-  .bstat{font-size:10px}
+  #barLevel{font-size:10px;max-width:80px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .bstat{font-size:9px}
+  .bstat:last-child{display:none}
   #wrap{flex-direction:column}
-  #panel{width:100%;height:auto;flex-direction:row;flex-wrap:wrap;padding:10px 12px;gap:10px;border-left:none;border-top:1px solid var(--border);overflow-y:visible;flex-shrink:0}
-  #panel .psec{min-width:120px}
-  .plabel{padding-bottom:6px;margin-bottom:0}
+  #panel{width:100%;height:auto;flex-direction:row;flex-wrap:nowrap;padding:8px 10px;gap:8px;border-left:none;border-top:1px solid var(--border);overflow-x:auto;overflow-y:visible;flex-shrink:0;-webkit-overflow-scrolling:touch;align-items:flex-start}
+  #panel .psec{min-width:auto;flex-shrink:0}
+  #panel .psec:last-child{display:none}
+  .plabel{padding-bottom:4px;margin-bottom:0;font-size:8px}
+  .lv{padding:6px 8px}
+  .lv .ln{font-size:11px}
   #cv{flex:1;min-height:0}
-  .modal{padding:24px;gap:14px}
-  .modal h2{font-size:20px}
-  .mstats{padding:12px}
-  .mst .v{font-size:22px}
-  .star{font-size:30px;gap:6px}
+  .btn{padding:12px 14px;font-size:12px;min-height:44px;display:flex;align-items:center;justify-content:center}
+  #dots{bottom:14px}
+  .dot{width:9px;height:9px}
+  .modal{padding:20px;gap:12px;max-width:92vw}
+  .modal h2{font-size:19px}
+  .mstats{padding:10px;gap:10px}
+  .mst .v{font-size:20px}
+  .star{font-size:28px}
+  .mbtns{gap:6px}
+  .mbtns .btn{min-width:0;padding:12px 8px}
+  .ecard{padding:28px 20px}
+  .ecard h3{font-size:20px}
+  .einput input{padding:12px;font-size:14px}
+  .einput button{padding:12px 14px;font-size:11px}
+  .eskip{font-size:11px;padding:8px}
+  #toast{font-size:11px;padding:8px 32px 8px 12px;max-width:90vw;white-space:normal;text-align:center}
+}
+@media(max-width:380px){
+  #bar{height:40px}
+  .logo{font-size:13px}
+  .bstat{display:none}
+  #panel{padding:6px 8px}
 }
 </style>
 </head>
@@ -132,6 +166,7 @@ canvas{width:100%;height:100%;display:block}
     </div>
     <div id="loading"><div class="spin"></div>Building puzzle…</div>
     <div id="dots"></div>
+    <div id="toast">Drag the pieces to the center to assemble<button class="tx" onclick="dismissToast()">&times;</button></div>
   </div>
   <div id="panel">
     <div class="psec">
@@ -580,7 +615,7 @@ const G=(()=>{
     });
   }
 
-  const orb={r:12,theta:.3,phi:1.0,tx:0,ty:0,tz:0,active:false,lx:0,ly:0,
+  const orb={r:16,theta:.3,phi:1.0,tx:0,ty:0,tz:0,active:false,lx:0,ly:0,
     update(){
       this.phi=Math.max(.1,Math.min(Math.PI-.1,this.phi));
       camera.position.set(
@@ -629,9 +664,9 @@ const G=(()=>{
     if(dir<0){tip.rotation.z=Math.PI;}
     g.add(shaft);g.add(tip);
     g.userData.arrowDir=dir;
-    // Invisible hit area
+    // Invisible hit area (sized for touch)
     const hit=new THREE.Mesh(
-      new THREE.CylinderGeometry(.2,.2,.9,8),
+      new THREE.CylinderGeometry(.4,.4,1.2,8),
       new THREE.MeshBasicMaterial({visible:false})
     );
     hit.userData.arrowDir=dir;
@@ -677,7 +712,7 @@ const G=(()=>{
   // ── SNAP ─────────────────────────────────────────────────────
   function snapRadius(piece){
     const box=new THREE.Box3().setFromObject(piece);
-    return box.getSize(new THREE.Vector3()).length()*.5;
+    return box.getSize(new THREE.Vector3()).length()*.3;
   }
   function trySnap(piece){
     if(!piece||piece.userData.isPlaced) return false;
@@ -834,7 +869,7 @@ const G=(()=>{
   },{passive:false});
 
   // ── TOUCH EVENTS (mobile) ─────────────────────────────────────
-  let touchOrb=null,pinchDist0=0;
+  let touchOrb=null,pinchDist0=0,touchOrbSingle=null;
 
   function touchNDC(t){
     const r=canvas.getBoundingClientRect();
@@ -847,7 +882,7 @@ const G=(()=>{
       const a=e.touches[0],b=e.touches[1];
       touchOrb={lx:(a.clientX+b.clientX)/2,ly:(a.clientY+b.clientY)/2};
       pinchDist0=Math.hypot(b.clientX-a.clientX,b.clientY-a.clientY);
-      dragging=null;dragArrowActive=null;
+      dragging=null;dragArrowActive=null;touchOrbSingle=null;
       return;
     }
     const t=e.touches[0];
@@ -856,16 +891,17 @@ const G=(()=>{
     const ah=hitArrows();
     if(ah.length){
       const dir=getArrowDir(ah[0].object);
-      if(dir&&lastSelected){dragArrowActive=dir;dragArrowStartY=lastSelected.position.y;dragArrowStartMY=t.clientY;dragging=lastSelected;dragMoved=false;return;}
+      if(dir&&lastSelected){dragArrowActive=dir;dragArrowStartY=lastSelected.position.y;dragArrowStartMY=t.clientY;dragging=lastSelected;dragMoved=false;touchOrbSingle=null;return;}
     }
     // Piece?
     const ph=hitPieces();
     if(ph.length){
       const root=getPieceRoot(ph[0].object);
-      if(root){touchNDC(t);rc.setFromCamera(mn,camera);startPieceDrag(root,t.clientX,t.clientY);return;}
+      if(root){touchNDC(t);rc.setFromCamera(mn,camera);startPieceDrag(root,t.clientX,t.clientY);touchOrbSingle=null;return;}
     }
-    // Empty → clear
+    // Empty → single-finger orbit
     if(lastSelected){setOutline(lastSelected,0);lastSelected=null;attachGizmo(null);}
+    touchOrbSingle={lx:t.clientX,ly:t.clientY};
   },{passive:false});
 
   canvas.addEventListener('touchmove',e=>{
@@ -882,6 +918,13 @@ const G=(()=>{
     }
     if(!e.touches.length) return;
     const t=e.touches[0];
+    // Single-finger orbit on empty space
+    if(touchOrbSingle&&!dragging&&!dragArrowActive){
+      orb.theta-=(t.clientX-touchOrbSingle.lx)*.005;
+      orb.phi=Math.max(.05,Math.min(Math.PI-.05,orb.phi-(t.clientY-touchOrbSingle.ly)*.005));
+      touchOrbSingle.lx=t.clientX;touchOrbSingle.ly=t.clientY;
+      orb.update();return;
+    }
     if(dragArrowActive&&dragging){
       const dy=(dragArrowStartMY-t.clientY)*0.018;
       dragging.position.y=Math.max(-3,Math.min(6,dragArrowStartY+dy));
@@ -902,7 +945,7 @@ const G=(()=>{
 
   canvas.addEventListener('touchend',e=>{
     e.preventDefault();
-    touchOrb=null;
+    touchOrb=null;touchOrbSingle=null;
     releaseDrag();
   },{passive:false});
 
@@ -995,8 +1038,9 @@ const G=(()=>{
         document.getElementById('barLevel').textContent=lvl.name;
         document.getElementById('pcSec').style.display='flex';
         document.getElementById('pcVal').textContent=N+' pieces';
-        orb.r=12;orb.theta=.4;orb.phi=.95;orb.tx=0;orb.ty=0;orb.tz=0;orb.update();
+        orb.r=16;orb.theta=.4;orb.phi=.95;orb.tx=0;orb.ty=0;orb.tz=0;orb.update();
         refreshAll();
+        showToast();
       }
 
       if(tex){
@@ -1074,6 +1118,19 @@ const G=(()=>{
       document.getElementById('buildBtn').style.display='block';
     }
     document.getElementById('winModal').classList.add('show');
+    // Show email capture once — right after completing the very first puzzle
+    maybeShowEmailCapture();
+  }
+
+  // Show email capture once — only after completing the first level, never again
+  function maybeShowEmailCapture(){
+    if(curIdx!==0) return;
+    const asked = localStorage.getItem('pf_email_asked');
+    const given = localStorage.getItem('pf_email_given');
+    if(!asked && !given){
+      localStorage.setItem('pf_email_asked','1');
+      setTimeout(()=>document.getElementById('emailModal').classList.add('show'), 380);
+    }
   }
 
   function refreshAll(){refreshStats();refreshDots();refreshLvList();}
@@ -1194,13 +1251,6 @@ const G=(()=>{
     },
     closeWin(){
       document.getElementById('winModal').classList.remove('show');
-      // Show email capture once — only after first completed puzzle, never again
-      const asked = localStorage.getItem('pf_email_asked');
-      const given = localStorage.getItem('pf_email_given');
-      if(!asked && !given){
-        localStorage.setItem('pf_email_asked','1');
-        setTimeout(()=>document.getElementById('emailModal').classList.add('show'), 380);
-      }
     }
   };
 })();
@@ -1267,6 +1317,22 @@ function closeEmailModal(){
 document.getElementById('emailInput').addEventListener('keydown', e => {
   if(e.key === 'Enter') submitEmail();
 });
+
+// ── TOAST ────────────────────────────────────────────────────
+let toastTimer=null;
+function showToast(){
+  const el=document.getElementById('toast');
+  el.classList.remove('hide');
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(dismissToast,4500);
+}
+function dismissToast(){
+  clearTimeout(toastTimer);
+  const el=document.getElementById('toast');
+  el.classList.remove('show');
+  el.classList.add('hide');
+}
 </script>
 </body>
 </html>
