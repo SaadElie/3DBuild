@@ -649,24 +649,23 @@ const G=(()=>{
   function makeArrow(color,dir){
     const g=new THREE.Group();
     const shaft=new THREE.Mesh(
-      new THREE.CylinderGeometry(.04,.04,.55,8),
+      new THREE.CylinderGeometry(.025,.025,.35,8),
       new THREE.MeshBasicMaterial({color,depthTest:false})
     );
     shaft.renderOrder=10;
     const tip=new THREE.Mesh(
-      new THREE.ConeGeometry(.12,.28,8),
+      new THREE.ConeGeometry(.08,.2,8),
       new THREE.MeshBasicMaterial({color,depthTest:false})
     );
     tip.renderOrder=10;
-    const sy=dir>0?0.555:-.555;
-    shaft.position.y=dir>0?.275:-.275;
-    tip.position.y=dir>0?.69:-.69;
+    shaft.position.y=dir>0?.175:-.175;
+    tip.position.y=dir>0?.45:-.45;
     if(dir<0){tip.rotation.z=Math.PI;}
     g.add(shaft);g.add(tip);
     g.userData.arrowDir=dir;
     // Invisible hit area (sized for touch)
     const hit=new THREE.Mesh(
-      new THREE.CylinderGeometry(.4,.4,1.2,8),
+      new THREE.CylinderGeometry(.3,.3,.8,8),
       new THREE.MeshBasicMaterial({visible:false})
     );
     hit.userData.arrowDir=dir;
@@ -675,8 +674,8 @@ const G=(()=>{
   }
   const arrowUp=makeArrow(0x44dd88,1);
   const arrowDn=makeArrow(0x44dd88,-1);
-  arrowUp.position.y= 1.1;
-  arrowDn.position.y=-1.1;
+  arrowUp.position.y= 1.6;
+  arrowDn.position.y=-1.6;
   arrowGroup.add(arrowUp);arrowGroup.add(arrowDn);
   arrowGroup.visible=false;
 
@@ -736,10 +735,7 @@ const G=(()=>{
     return true;
   }
   function liveProximity(piece){
-    if(piece.userData.isPlaced) return;
-    const dist=piece.position.distanceTo(piece.userData.correctPos);
-    const r=snapRadius(piece);
-    setOutline(piece, dist<r ? 0.95 : dist<r*2 ? 0.5 : 0.15);
+    // No outline while dragging — only flash on successful snap
   }
 
   // ── INPUT ────────────────────────────────────────────────────
@@ -793,8 +789,8 @@ const G=(()=>{
       if(trySnap(dragging)){
         lastSelected=null;dragging=null;attachGizmo(null);
       } else {
-        // Keep gizmo + dim highlight — user can grab arrow immediately
-        setOutline(dragging,0.15);
+        // Keep gizmo visible — user can grab arrow immediately
+        setOutline(dragging,0);
         dragging=null; // not actively dragging, but gizmo stays
       }
     }
