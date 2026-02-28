@@ -90,6 +90,21 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
 .preview3d canvas{display:block}
 .previewHint{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font-size:9px;color:rgba(255,255,255,.3);letter-spacing:.08em;pointer-events:none}
 
+/* Cut preview */
+.cutPreview{width:100%;height:300px;border-radius:4px;overflow:hidden;background:#1a1814;position:relative;margin-top:4px}
+.cutPreview canvas{display:block}
+.cutModes{display:flex;gap:0;border:1px solid var(--b);border-radius:3px;overflow:hidden;margin-bottom:14px}
+.cutMode{flex:1;padding:8px 12px;background:var(--bg);border:none;font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.04em;cursor:pointer;color:var(--m);transition:all .15s;text-align:center}
+.cutMode.active{background:var(--a);color:#fff}
+.cutMode:not(:last-child){border-right:1px solid var(--b)}
+.cutPlaneList{display:flex;flex-direction:column;gap:4px;margin-top:10px}
+.cutPlaneItem{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-radius:3px;font-size:11px}
+.cutPlaneItem label{color:var(--m);width:40px;flex-shrink:0}
+.cutPlaneItem input[type=range]{flex:1;accent-color:var(--a)}
+.cutPlaneItem .cpv{font-size:10px;color:var(--t);min-width:36px;text-align:right}
+.cutPlaneItem button{background:none;border:none;color:var(--m);cursor:pointer;font-size:13px;padding:0 4px}
+.cutPlaneItem button:hover{color:var(--red)}
+
 /* Danger */
 .dangerBtn{background:none;border:1px solid #e8c4c4;color:var(--red);border-radius:3px;padding:8px 16px;font-family:'Jost',sans-serif;font-size:11px;letter-spacing:.05em;cursor:pointer;transition:all .2s}
 .dangerBtn:hover{background:var(--red);color:#fff;border-color:var(--red)}
@@ -156,6 +171,15 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
               <div class="sliderVal" id="ePiecesVal">15</div>
             </div>
           </div>
+          <div class="row"><label>Snap Difficulty</label>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:10px;color:var(--m)">Easy</span>
+              <input type="range" id="eSnap" min="10" max="60" value="30" style="flex:1;accent-color:var(--a);cursor:pointer" oninput="document.getElementById('eSnapVal').textContent=this.value+'%';syncField('snapTolerance',+this.value)">
+              <span style="font-size:10px;color:var(--m)">Hard</span>
+              <div class="sliderVal" id="eSnapVal" style="min-width:36px">30%</div>
+            </div>
+            <div style="font-size:10px;color:var(--m);margin-top:4px">How close a piece must be to snap into place (% of piece size)</div>
+          </div>
         </div>
 
         <!-- 3D Model + Calibration -->
@@ -203,6 +227,32 @@ html,body{min-height:100%;background:var(--bg);color:var(--t);font-family:'Jost'
             <button class="fx" onclick="clearSky()">✕</button>
           </div>
           <img id="skyThumb" class="skyThumb">
+        </div>
+
+        <!-- Puzzle Cut Preview -->
+        <div class="card" id="cutCard" style="display:none">
+          <div class="cardHead">Puzzle Cut Preview</div>
+          <div class="cutModes">
+            <button class="cutMode active" id="cutModeAuto" onclick="setCutMode('auto')">Auto</button>
+            <button class="cutMode" id="cutModeManual" onclick="setCutMode('manual')">Manual Cuts</button>
+          </div>
+          <div id="cutAutoInfo" style="font-size:10px;color:var(--m);margin-bottom:10px">The model will be split into a 3D grid based on piece count.</div>
+          <div id="cutManualInfo" style="font-size:10px;color:var(--m);margin-bottom:10px;display:none">
+            Add axis-aligned cut planes. The model is sliced where each plane crosses it.
+            <div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">
+              <button class="cutPlaneAdd" onclick="addCutPlane('x')" style="padding:5px 12px;background:var(--bg);border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:10px;cursor:pointer;color:var(--m);transition:all .15s">+ X plane</button>
+              <button class="cutPlaneAdd" onclick="addCutPlane('y')" style="padding:5px 12px;background:var(--bg);border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:10px;cursor:pointer;color:var(--m);transition:all .15s">+ Y plane</button>
+              <button class="cutPlaneAdd" onclick="addCutPlane('z')" style="padding:5px 12px;background:var(--bg);border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:10px;cursor:pointer;color:var(--m);transition:all .15s">+ Z plane</button>
+            </div>
+            <div class="cutPlaneList" id="cutPlaneList"></div>
+          </div>
+          <div class="cutPreview" id="cutPreviewContainer">
+            <canvas id="cutCanvas"></canvas>
+          </div>
+          <div style="display:flex;gap:8px;margin-top:10px">
+            <button onclick="refreshCutPreview()" style="flex:1;padding:8px;background:var(--bg);border:1px solid var(--b);border-radius:3px;font-family:'Jost',sans-serif;font-size:11px;cursor:pointer;color:var(--m);transition:all .15s">Refresh Preview</button>
+          </div>
+          <div style="font-size:10px;color:var(--m);margin-top:8px" id="cutPieceCount"></div>
         </div>
 
         <!-- Danger -->
@@ -390,6 +440,7 @@ async function initApp(){
       id:r.id||crypto.randomUUID(),
       name:r.name||'Unnamed',
       pieces:r.pieces||15,
+      snapTolerance:r.snap_tolerance||30,
       modelData:r.model_data||null,  // base64 stored
       modelFn:r.model_fn||null,
       skyData:r.sky_data||null,
@@ -398,6 +449,9 @@ async function initApp(){
       calibRX:r.calib_rx||0,
       calibRY:r.calib_ry||0,
       calibRZ:r.calib_rz||0,
+      offsetY:r.offset_y||0,
+      cutMode:r.cut_mode||'auto',
+      cutPlanes:r.cut_planes||[],
       modelFile:null, skyFile:null   // new local files not yet committed
     }));
     toast('Loaded '+levels.length+' level(s)');
@@ -431,13 +485,14 @@ function renderList(){
       <div class="lvNum">${i+1}</div>
       <div style="flex:1;min-width:0">
         <div class="lvTitle">${l.name}</div>
-        <div class="lvMeta">${l.pieces} pcs${l.modelData||l.modelFile?' · ⬡':''} ${l.skyData||l.skyFile?' · 360°':''}</div>
+        <div class="lvMeta">${l.pieces} pcs · snap ${l.snapTolerance||30}%${l.modelData||l.modelFile?' · ⬡':''} ${l.skyData||l.skyFile?' · 360°':''}</div>
       </div>
     </div>`).join('');
 }
 
 function selectLevel(i){
   selIdx=i;
+  cutFacesCache=null;cutBoundsCache=null;
   renderList();
   const l=levels[i];
   document.getElementById('noSel').style.display='none';
@@ -445,6 +500,8 @@ function selectLevel(i){
   document.getElementById('eName').value=l.name;
   document.getElementById('ePieces').value=l.pieces;
   document.getElementById('ePiecesVal').textContent=l.pieces;
+  document.getElementById('eSnap').value=l.snapTolerance||30;
+  document.getElementById('eSnapVal').textContent=(l.snapTolerance||30)+'%';
   // model
   if(l.modelData||l.modelFile){
     document.getElementById('modelInfo').style.display='flex';
@@ -483,7 +540,7 @@ function syncField(field,val){
 }
 
 function addLevel(){
-  levels.push({id:crypto.randomUUID(),name:'New Level',pieces:15,modelData:null,modelFn:null,skyData:null,skyMime:'image/jpeg',skyFn:null,calibRX:0,calibRY:0,calibRZ:0,modelFile:null,skyFile:null});
+  levels.push({id:crypto.randomUUID(),name:'New Level',pieces:15,snapTolerance:30,modelData:null,modelFn:null,skyData:null,skyMime:'image/jpeg',skyFn:null,calibRX:0,calibRY:0,calibRZ:0,offsetY:0,cutMode:'auto',cutPlanes:[],modelFile:null,skyFile:null});
   markDirty();renderList();selectLevel(levels.length-1);
 }
 
@@ -532,6 +589,8 @@ function clearModel(){
 function clearModelUI(){
   document.getElementById('modelInfo').style.display='none';
   document.getElementById('calibSection').style.display='none';
+  document.getElementById('cutCard').style.display='none';
+  cutFacesCache=null;cutBoundsCache=null;
 }
 
 function showCalibSection(l, resetSliders){
@@ -924,6 +983,7 @@ async function publish(){
     id:l.id,
     name:l.name,
     pieces:l.pieces,
+    snap_tolerance:l.snapTolerance||30,
     order:i,
     model_data:l.modelData||null,
     model_fn:l.modelFn||null,
@@ -933,7 +993,9 @@ async function publish(){
     calib_rx:l.calibRX||0,
     calib_ry:l.calibRY||0,
     calib_rz:l.calibRZ||0,
-    offset_y:l.offsetY||0
+    offset_y:l.offsetY||0,
+    cut_mode:l.cutMode||'auto',
+    cut_planes:l.cutPlanes||[]
   }));
 
   showProgress('Committing to GitHub…', 75);
@@ -986,6 +1048,335 @@ function toast(msg){
   el.textContent=msg;el.classList.add('show');
   clearTimeout(el._t);el._t=setTimeout(()=>el.classList.remove('show'),3000);
 }
+
+// ══════════════════════════════════════════════════════════════════
+// PUZZLE CUT PREVIEW
+// ══════════════════════════════════════════════════════════════════
+const CUT_COLORS=[0xe05a5a,0xe07a30,0xd4b800,0x4aaa44,0x3a9abb,0x7060cc,0xcc50aa,0x44bbaa,0xdd8844,0x5588dd,0xaa4466,0x66aa44,0x4466cc,0xcc6644,0x44cc88,0xbb5599,0x55bb77,0xcc8833,0x6655cc,0x33aa99];
+let cutRenderer=null,cutScene=null,cutCamera=null,cutLoopRunning=false;
+let cutOrb={r:4,th:.5,ph:.9,on:false,lx:0,ly:0,tx:0,ty:0,tz:0};
+let cutMode='auto';
+let cutPlanes=[]; // [{axis:'x'|'y'|'z', pos:0.5}]  pos is 0..1 normalized
+let cutFacesCache=null; // cached face list for current model
+let cutBoundsCache=null; // {mnx,mny,mnz,mxx,mxy,mxz}
+let cutPieceMeshes=[]; // current preview meshes
+
+// Convert admin prims to face objects (same format as game)
+function primsToFaces(prims, sc, cx, cy, cz){
+  const faces=[];
+  for(const prim of prims){
+    const {pos,nor,uv,col,idx}=prim;
+    const triCount=idx?idx.length/3:pos.length/9;
+    for(let t=0;t<triCount;t++){
+      const vi=[idx?idx[t*3]:t*3, idx?idx[t*3+1]:t*3+1, idx?idx[t*3+2]:t*3+2];
+      const p=vi.map(i=>[(pos[i*3]-cx)*sc,(pos[i*3+1]-cy)*sc,(pos[i*3+2]-cz)*sc]);
+      const n=nor?vi.map(i=>[nor[i*3],nor[i*3+1],nor[i*3+2]]):[];
+      faces.push({
+        pos:p,nor:n,
+        cx:(p[0][0]+p[1][0]+p[2][0])/3,
+        cy:(p[0][1]+p[1][1]+p[2][1])/3,
+        cz:(p[0][2]+p[1][2]+p[2][2])/3
+      });
+    }
+  }
+  return faces;
+}
+
+// Spatial grid splitter (same algorithm as game)
+function splitFaces(faces,N){
+  if(!faces.length) return [];
+  let mnx=Infinity,mny=Infinity,mnz=Infinity,mxx=-Infinity,mxy=-Infinity,mxz=-Infinity;
+  for(const f of faces){mnx=Math.min(mnx,f.cx);mny=Math.min(mny,f.cy);mnz=Math.min(mnz,f.cz);mxx=Math.max(mxx,f.cx);mxy=Math.max(mxy,f.cy);mxz=Math.max(mxz,f.cz);}
+  const rx=mxx-mnx||1,ry=mxy-mny||1,rz=mxz-mnz||1;
+  const base=Math.cbrt(rx*ry*rz/N);
+  let gx=Math.max(1,Math.round(rx/base)),gy=Math.max(1,Math.round(ry/base)),gz=Math.max(1,Math.round(rz/base));
+  while(gx*gy*gz<N){
+    const opts=[[gx+1,gy,gz],[gx,gy+1,gz],[gx,gy,gz+1]];
+    let best=opts[0],bd=Infinity;
+    for(const o of opts){const d=Math.abs(o[0]*o[1]*o[2]-N);if(d<bd){bd=d;best=o;}}
+    [gx,gy,gz]=best;
+  }
+  const cells=new Map();
+  for(const f of faces){
+    const ix=Math.min(gx-1,Math.floor(((f.cx-mnx)/rx)*gx));
+    const iy=Math.min(gy-1,Math.floor(((f.cy-mny)/ry)*gy));
+    const iz=Math.min(gz-1,Math.floor(((f.cz-mnz)/rz)*gz));
+    const key=ix+iy*gx+iz*gx*gy;
+    if(!cells.has(key))cells.set(key,[]);
+    cells.get(key).push(f);
+  }
+  let groups=[...cells.values()].filter(g=>g.length>0);
+  groups.sort((a,b)=>b.length-a.length);
+  while(groups.length>N){const a=groups.pop(),b=groups.pop();groups.push([...a,...b]);groups.sort((a,b)=>b.length-a.length);}
+  return groups.filter(g=>g.length>0);
+}
+
+// Manual plane splitter — splits faces by axis-aligned planes
+function splitByPlanes(faces, planes, bounds){
+  if(!faces.length||!planes.length) return [faces];
+  const {mnx,mny,mnz,mxx,mxy,mxz}=bounds;
+  // Sort planes so we split progressively
+  const sorted=[...planes].sort((a,b)=>a.pos-b.pos);
+  let groups=[faces];
+  for(const pl of sorted){
+    const newGroups=[];
+    for(const grp of groups){
+      const a=[],b=[];
+      for(const f of grp){
+        let val;
+        if(pl.axis==='x') val=(f.cx-mnx)/(mxx-mnx||1);
+        else if(pl.axis==='y') val=(f.cy-mny)/(mxy-mny||1);
+        else val=(f.cz-mnz)/(mxz-mnz||1);
+        if(val<pl.pos) a.push(f); else b.push(f);
+      }
+      if(a.length) newGroups.push(a);
+      if(b.length) newGroups.push(b);
+    }
+    groups=newGroups;
+  }
+  return groups.filter(g=>g.length>0);
+}
+
+// Build geometry from face group (for preview — no shrink needed)
+function buildCutGeo(fg){
+  const gv=[],gn=[];
+  for(const f of fg){
+    for(let k=0;k<3;k++){
+      gv.push(f.pos[k][0],f.pos[k][1],f.pos[k][2]);
+      if(f.nor&&f.nor[k]) gn.push(f.nor[k][0],f.nor[k][1],f.nor[k][2]);
+    }
+  }
+  const bg=new THREE.BufferGeometry();
+  bg.setAttribute('position',new THREE.Float32BufferAttribute(gv,3));
+  if(gn.length===gv.length) bg.setAttribute('normal',new THREE.Float32BufferAttribute(gn,3));
+  else bg.computeVertexNormals();
+  return bg;
+}
+
+function setCutMode(mode){
+  cutMode=mode;
+  document.getElementById('cutModeAuto').classList.toggle('active',mode==='auto');
+  document.getElementById('cutModeManual').classList.toggle('active',mode==='manual');
+  document.getElementById('cutAutoInfo').style.display=mode==='auto'?'block':'none';
+  document.getElementById('cutManualInfo').style.display=mode==='manual'?'block':'none';
+  if(selIdx>=0){
+    levels[selIdx].cutMode=mode;
+    if(mode==='auto') levels[selIdx].cutPlanes=[];
+    markDirty();
+  }
+  refreshCutPreview();
+}
+
+function addCutPlane(axis){
+  cutPlanes.push({axis,pos:0.5});
+  if(selIdx>=0){levels[selIdx].cutPlanes=[...cutPlanes];markDirty();}
+  renderCutPlaneList();
+  refreshCutPreview();
+}
+
+function removeCutPlane(idx){
+  cutPlanes.splice(idx,1);
+  if(selIdx>=0){levels[selIdx].cutPlanes=[...cutPlanes];markDirty();}
+  renderCutPlaneList();
+  refreshCutPreview();
+}
+
+function updateCutPlane(idx,val){
+  cutPlanes[idx].pos=val;
+  if(selIdx>=0){levels[selIdx].cutPlanes=[...cutPlanes];markDirty();}
+  refreshCutPreview();
+}
+
+function renderCutPlaneList(){
+  const el=document.getElementById('cutPlaneList');
+  if(!cutPlanes.length){el.innerHTML='<div style="font-size:10px;color:var(--m);padding:4px 0">No cut planes added</div>';return;}
+  el.innerHTML=cutPlanes.map((p,i)=>`
+    <div class="cutPlaneItem">
+      <label>${p.axis.toUpperCase()} cut</label>
+      <input type="range" min="5" max="95" value="${Math.round(p.pos*100)}" oninput="updateCutPlane(${i},this.value/100);this.nextElementSibling.textContent=this.value+'%'">
+      <span class="cpv">${Math.round(p.pos*100)}%</span>
+      <button onclick="removeCutPlane(${i})">✕</button>
+    </div>
+  `).join('');
+}
+
+function initCutPreview(){
+  const container=document.getElementById('cutPreviewContainer');
+  const canvas=document.getElementById('cutCanvas');
+  if(!container||!canvas) return;
+
+  function setup(){
+    const w=container.offsetWidth;
+    const h=300;
+    if(!w){setTimeout(setup,150);return;}
+    if(!cutRenderer){
+      cutRenderer=new THREE.WebGLRenderer({canvas,antialias:true});
+      cutRenderer.setClearColor(0x15120e,1);
+      cutRenderer.setPixelRatio(window.devicePixelRatio);
+      cutRenderer.setSize(w,h);
+      cutScene=new THREE.Scene();
+      cutCamera=new THREE.PerspectiveCamera(50,w/h,0.05,500);
+      cutScene.add(new THREE.AmbientLight(0xffffff,0.7));
+      const sun=new THREE.DirectionalLight(0xffffff,1.0);
+      sun.position.set(5,10,7);cutScene.add(sun);
+      const fill=new THREE.DirectionalLight(0x8090ff,0.2);
+      fill.position.set(-5,2,-5);cutScene.add(fill);
+      // Orbit controls
+      canvas.addEventListener('mousedown',e=>{cutOrb.on=true;cutOrb.lx=e.clientX;cutOrb.ly=e.clientY;e.preventDefault();});
+      canvas.addEventListener('touchstart',e=>{const t=e.touches[0];cutOrb.on=true;cutOrb.lx=t.clientX;cutOrb.ly=t.clientY;},{passive:true});
+      window.addEventListener('mousemove',e=>{if(!cutOrb.on)return;cutOrb.th-=(e.clientX-cutOrb.lx)*.006;cutOrb.ph=Math.max(.05,Math.min(1.55,cutOrb.ph-(e.clientY-cutOrb.ly)*.006));cutOrb.lx=e.clientX;cutOrb.ly=e.clientY;updateCutOrb();});
+      window.addEventListener('touchmove',e=>{if(!cutOrb.on)return;const t=e.touches[0];cutOrb.th-=(t.clientX-cutOrb.lx)*.006;cutOrb.ph=Math.max(.05,Math.min(1.55,cutOrb.ph-(t.clientY-cutOrb.ly)*.006));cutOrb.lx=t.clientX;cutOrb.ly=t.clientY;updateCutOrb();},{passive:true});
+      window.addEventListener('mouseup',()=>cutOrb.on=false);
+      window.addEventListener('touchend',()=>cutOrb.on=false);
+      canvas.addEventListener('wheel',e=>{cutOrb.r=Math.max(.5,Math.min(40,cutOrb.r*(1+e.deltaY*.001)));updateCutOrb();e.preventDefault();},{passive:false});
+      new ResizeObserver(()=>{
+        const nw=container.offsetWidth;
+        if(!nw||!cutRenderer)return;
+        cutRenderer.setSize(nw,h);
+        cutCamera.aspect=nw/h;cutCamera.updateProjectionMatrix();
+      }).observe(container);
+      if(!cutLoopRunning){
+        cutLoopRunning=true;
+        (function loop(){requestAnimationFrame(loop);if(cutRenderer&&cutScene&&cutCamera)cutRenderer.render(cutScene,cutCamera);})();
+      }
+    } else {
+      cutRenderer.setSize(w,h);
+      cutCamera.aspect=w/h;cutCamera.updateProjectionMatrix();
+    }
+  }
+  setTimeout(setup,150);
+}
+function updateCutOrb(){
+  if(!cutCamera)return;
+  cutCamera.position.set(
+    cutOrb.tx+cutOrb.r*Math.sin(cutOrb.ph)*Math.sin(cutOrb.th),
+    cutOrb.ty+cutOrb.r*Math.cos(cutOrb.ph),
+    cutOrb.tz+cutOrb.r*Math.sin(cutOrb.ph)*Math.cos(cutOrb.th)
+  );cutCamera.lookAt(cutOrb.tx,cutOrb.ty,cutOrb.tz);
+}
+
+function refreshCutPreview(){
+  if(selIdx<0) return;
+  const l=levels[selIdx];
+  if(!l._buf&&!l.modelData) return;
+
+  // Parse model to faces if not cached
+  if(!cutFacesCache){
+    let buf=l._buf;
+    if(!buf&&l.modelData){
+      const b64=l.modelData.replace(/\s/g,'');
+      const bin=atob(b64);buf=new ArrayBuffer(bin.length);
+      const u8=new Uint8Array(buf);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);
+    }
+    if(!buf) return;
+    const prims=loadGLBSimple(buf);
+    // Compute bounds for normalization
+    let mnx=Infinity,mny=Infinity,mnz=Infinity,mxx=-Infinity,mxy=-Infinity,mxz=-Infinity;
+    prims.forEach(({pos})=>{for(let i=0;i<pos.length;i+=3){mnx=Math.min(mnx,pos[i]);mxx=Math.max(mxx,pos[i]);mny=Math.min(mny,pos[i+1]);mxy=Math.max(mxy,pos[i+1]);mnz=Math.min(mnz,pos[i+2]);mxz=Math.max(mxz,pos[i+2]);}});
+    const cx=(mnx+mxx)/2,cy=(mny+mxy)/2,cz=(mnz+mxz)/2;
+    const sc=2.5/Math.max(mxx-mnx,mxy-mny,mxz-mnz,0.001);
+    cutFacesCache=primsToFaces(prims,sc,cx,cy,cz);
+    // Compute normalized bounds for the cut faces
+    let b={mnx:Infinity,mny:Infinity,mnz:Infinity,mxx:-Infinity,mxy:-Infinity,mxz:-Infinity};
+    for(const f of cutFacesCache){b.mnx=Math.min(b.mnx,f.cx);b.mny=Math.min(b.mny,f.cy);b.mnz=Math.min(b.mnz,f.cz);b.mxx=Math.max(b.mxx,f.cx);b.mxy=Math.max(b.mxy,f.cy);b.mxz=Math.max(b.mxz,f.cz);}
+    cutBoundsCache=b;
+  }
+
+  // Initialize renderer if needed
+  if(!cutRenderer) initCutPreview();
+
+  // Clear old meshes
+  cutPieceMeshes.forEach(m=>{cutScene.remove(m);m.geometry.dispose();m.material.dispose();});
+  cutPieceMeshes=[];
+  // Also clear plane helpers
+  if(cutScene) cutScene.children.filter(c=>c.userData.isCutPlane).forEach(c=>cutScene.remove(c));
+
+  // Split
+  let groups;
+  if(cutMode==='manual'&&cutPlanes.length){
+    groups=splitByPlanes(cutFacesCache,cutPlanes,cutBoundsCache);
+  } else {
+    groups=splitFaces(cutFacesCache,l.pieces||15);
+  }
+
+  // Build meshes with distinct colors and small gaps
+  const SHRINK=0.025;
+  groups.forEach((grp,i)=>{
+    // Shrink each group toward its centroid for visible gaps
+    let pcx=0,pcy=0,pcz=0,cnt=0;
+    for(const f of grp){for(const v of f.pos){pcx+=v[0];pcy+=v[1];pcz+=v[2];cnt++;}}
+    pcx/=cnt;pcy/=cnt;pcz/=cnt;
+    const gv=[],gn=[];
+    for(const f of grp){
+      for(let k=0;k<3;k++){
+        const v=f.pos[k];
+        gv.push(v[0]+(pcx-v[0])*SHRINK, v[1]+(pcy-v[1])*SHRINK, v[2]+(pcz-v[2])*SHRINK);
+        if(f.nor&&f.nor[k]) gn.push(f.nor[k][0],f.nor[k][1],f.nor[k][2]);
+      }
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(gv,3));
+    if(gn.length===gv.length) geo.setAttribute('normal',new THREE.Float32BufferAttribute(gn,3));
+    else geo.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({color:CUT_COLORS[i%CUT_COLORS.length],roughness:.7,metalness:0,side:THREE.DoubleSide});
+    const mesh=new THREE.Mesh(geo,mat);
+    cutScene.add(mesh);
+    cutPieceMeshes.push(mesh);
+  });
+
+  // Draw manual cut plane indicators
+  if(cutMode==='manual'&&cutPlanes.length&&cutBoundsCache){
+    const b=cutBoundsCache;
+    const sz=Math.max(b.mxx-b.mnx,b.mxy-b.mny,b.mxz-b.mnz,1);
+    cutPlanes.forEach(pl=>{
+      const planeGeo=new THREE.PlaneGeometry(sz*1.3,sz*1.3);
+      const planeMat=new THREE.MeshBasicMaterial({color:0xff4444,transparent:true,opacity:0.12,side:THREE.DoubleSide,depthWrite:false});
+      const planeMesh=new THREE.Mesh(planeGeo,planeMat);
+      planeMesh.userData.isCutPlane=true;
+      if(pl.axis==='x'){
+        planeMesh.rotation.y=Math.PI/2;
+        planeMesh.position.x=b.mnx+(b.mxx-b.mnx)*pl.pos;
+        planeMesh.position.y=(b.mny+b.mxy)/2;
+        planeMesh.position.z=(b.mnz+b.mxz)/2;
+      } else if(pl.axis==='y'){
+        planeMesh.rotation.x=Math.PI/2;
+        planeMesh.position.x=(b.mnx+b.mxx)/2;
+        planeMesh.position.y=b.mny+(b.mxy-b.mny)*pl.pos;
+        planeMesh.position.z=(b.mnz+b.mxz)/2;
+      } else {
+        planeMesh.position.x=(b.mnx+b.mxx)/2;
+        planeMesh.position.y=(b.mny+b.mxy)/2;
+        planeMesh.position.z=b.mnz+(b.mxz-b.mnz)*pl.pos;
+      }
+      cutScene.add(planeMesh);
+    });
+  }
+
+  // Fit camera
+  cutOrb.tx=0;cutOrb.ty=0;cutOrb.tz=0;cutOrb.r=4;cutOrb.ph=.8;cutOrb.th=.5;
+  updateCutOrb();
+
+  document.getElementById('cutPieceCount').textContent='Preview: '+groups.length+' piece'+(groups.length===1?'':'s')+' ('+cutFacesCache.length+' triangles)';
+  document.getElementById('cutCard').style.display='block';
+}
+
+// Show cut card when model is loaded (hook into showCalibSection)
+const _origShowCalib=showCalibSection;
+showCalibSection=function(l,resetSliders){
+  _origShowCalib(l,resetSliders);
+  // Reset cut cache when model changes
+  cutFacesCache=null;cutBoundsCache=null;
+  // Load saved cut settings
+  cutMode=l.cutMode||'auto';
+  cutPlanes=l.cutPlanes?[...l.cutPlanes]:[];
+  document.getElementById('cutModeAuto').classList.toggle('active',cutMode==='auto');
+  document.getElementById('cutModeManual').classList.toggle('active',cutMode==='manual');
+  document.getElementById('cutAutoInfo').style.display=cutMode==='auto'?'block':'none';
+  document.getElementById('cutManualInfo').style.display=cutMode==='manual'?'block':'none';
+  renderCutPlaneList();
+  // Delayed preview — let calibration preview init first
+  setTimeout(()=>refreshCutPreview(),400);
+};
 </script>
 </body>
 </html>
