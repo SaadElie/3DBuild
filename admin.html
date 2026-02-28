@@ -434,7 +434,19 @@ async function initApp(){
   toast('Loading existing levels…');
   try{
     const file=await ghGet('levels.json');
-    const text=decodeURIComponent(escape(atob(file.content.replace(/\n/g,''))));
+    let text;
+    if(file.content){
+      // Small file — inline base64 from Contents API
+      text=decodeURIComponent(escape(atob(file.content.replace(/\n/g,''))));
+    } else if(file.download_url){
+      // Large file (>1MB) — Contents API returns download_url instead
+      toast('Large file — downloading…');
+      const dlr=await fetch(file.download_url);
+      if(!dlr.ok) throw new Error('Download failed: '+dlr.status);
+      text=await dlr.text();
+    } else {
+      throw new Error('No content or download_url in API response');
+    }
     const data=JSON.parse(text);
     levels=data.map(r=>({
       id:r.id||crypto.randomUUID(),
